@@ -1,0 +1,5 @@
+{
+    "Seed Id": {
+        "type": "keyword"
+    }
+}

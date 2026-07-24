@@ -1,0 +1,5 @@
+{
+    "Fertilizer Id": {
+        "type": "keyword"
+    }
+}

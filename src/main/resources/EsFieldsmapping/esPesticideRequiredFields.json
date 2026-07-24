@@ -1,0 +1,5 @@
+{
+    "Pesticide Id": {
+        "type": "keyword"
+    }
+}

@@ -1,0 +1,5 @@
+{
+    "Soil Id": {
+        "type": "keyword"
+    }
+}
