@@ -11,11 +11,11 @@ done
 
 echo "--- Checking Postgres ---"
 if command -v psql &>/dev/null; then
-    PGPASSWORD=verg_password psql -h localhost -p 5433 -U verg_user -d verg_db -c "SELECT 'Postgres ready!'" 2>&1 | tail -3
+    PGPASSWORD=oas_password psql -h localhost -p 5433 -U oas_user -d oas_db -c "SELECT 'Postgres ready!'" 2>&1 | tail -3
 else
     echo "psql not installed — will install"
     sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client redis-tools 2>&1 | tail -3
-    PGPASSWORD=verg_password psql -h localhost -p 5433 -U verg_user -d verg_db -c "SELECT 'Postgres ready!'" 2>&1 | tail -3
+    PGPASSWORD=oas_password psql -h localhost -p 5433 -U oas_user -d oas_db -c "SELECT 'Postgres ready!'" 2>&1 | tail -3
 fi
 
 echo "--- Checking Redis ---"

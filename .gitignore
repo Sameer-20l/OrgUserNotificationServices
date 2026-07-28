@@ -114,3 +114,7 @@ catalogue-data/
 
 #===== ide files ====
 CLAUDE.md
+
+
+#===== postman collections (local only, not pushed) ====
+postman/

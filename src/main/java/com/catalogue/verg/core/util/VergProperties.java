@@ -21,38 +21,6 @@ public class VergProperties {
         @Value("${elastic.required.field.sample.json.path}")
         private String elasticSampleJsonPath;
     
-        @Value("${elastic.required.field.seed.json.path}")
-        private String elasticSeedJsonPath;
-        @Value("${elastic.required.field.livestock.json.path}")
-        private String elasticLivestockJsonPath;
-    
-        @Value("${elastic.required.field.season.json.path}")
-        private String elasticSeasonJsonPath;
-    
-        @Value("${elastic.required.field.soil.json.path}")
-        private String elasticSoilJsonPath;
-    
-        @Value("${elastic.required.field.extensionequipment.json.path}")
-        private String elasticExtensionequipmentJsonPath;
-    
-        @Value("${elastic.required.field.pesticide.json.path}")
-        private String elasticPesticideJsonPath;
-    
-        @Value("${elastic.required.field.insecticide.json.path}")
-        private String elasticInsecticideJsonPath;
-    
-        @Value("${elastic.required.field.fertilizer.json.path}")
-        private String elasticFertilizerJsonPath;
-    
-        @Value("${elastic.required.field.location.json.path}")
-        private String elasticLocationJsonPath;
-    
-        @Value("${elastic.required.field.croptype.json.path}")
-        private String elasticCroptypeJsonPath;
-    
-        @Value("${elastic.required.field.cropcategory.json.path}")
-        private String elasticCropcategoryJsonPath;
-    
-        @Value("${elastic.required.field.cropvariety.json.path}")
-        private String elasticCropvarietyJsonPath;
+        @Value("${elastic.required.field.org.json.path}")
+        private String elasticOrgJsonPath;
     }

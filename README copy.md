@@ -1,10 +1,10 @@
-# Agri Catalogue Service
+# Organisation Catalogue Service
 
 A Spring Boot microservice that manages and serves agricultural catalogue data — crops, livestock, soil, season, and related agri-input entities — backed by Elasticsearch for fast search and retrieval.
 
 ## Overview
 
-The Agri Catalogue Service is part of the **OpenAgriStack** ecosystem. It exposes REST APIs to create, search, and manage reference/catalogue data used across the platform, such as crop types, crop categories, crop varieties, seeds, livestock, soil types, seasons, extension equipment, pesticides, insecticides, fertilizers, and locations.
+The Organisation Catalogue Service is part of the **OpenAgriStack** ecosystem. It exposes REST APIs to create, search, and manage reference/catalogue data used across the platform, such as crop types, crop categories, crop varieties, seeds, livestock, soil types, seasons, extension equipment, pesticides, insecticides, fertilizers, and locations.
 
 ## Features
 

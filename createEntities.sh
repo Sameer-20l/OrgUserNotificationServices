@@ -2,18 +2,7 @@
 set -euo pipefail
 
 entities=(
-   "seed"
-    "cropType"
-    "cropCategory"
-    "cropVariety"
-    "livestock"
-    "season"
-    "soil"
-    "extensionequipment"
-    "pesticide"
-    "insecticide"
-    "fertilizer"
-    "location"
+  "org"
 )
 
 for entity in "${entities[@]}"; do

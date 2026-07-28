@@ -1,0 +1,23 @@
+{
+    "name": {
+        "type": "keyword"
+    },
+    "type": {
+        "type": "keyword"
+    },
+    "location": {
+        "type": "keyword"
+    },
+    "department": {
+        "type": "keyword"
+    },
+    "address": {
+        "type": "keyword"
+    },
+    "contactNumber": {
+        "type": "keyword"
+    },
+    "contactEmail": {
+        "type": "keyword"
+    }
+}
