@@ -1,0 +1,45 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+        "orgId": {
+            "type": "string",
+            "prefix": "org-",
+            "key": "Primary",
+            "keyLength": 12,
+            "description": "Auto-generated primary key for the organisation (org-<random digits>)"
+        },
+        "name": {
+            "type": "string",
+            "description": "Organisation name"
+        },
+        "type": {
+            "type": "string",
+            "description": "Organisation type, e.g. Government Department, NGO, Research Institute"
+        },
+        "location": {
+            "type": "string",
+            "description": "Location-mapping id referencing the separate location-mapping catalogue (not yet linked)"
+        },
+        "department": {
+            "type": "string",
+            "description": "Department, e.g. Horticulture, Soil Science, Plant Pathology"
+        },
+        "address": {
+            "type": "string",
+            "description": "Postal address of the organisation"
+        },
+        "contactNumber": {
+            "type": "string",
+            "description": "Contact phone number"
+        },
+        "contactEmail": {
+            "type": "string",
+            "description": "Contact email address"
+        }
+    },
+    "required": [
+        "name",
+        "type"
+    ]
+}
