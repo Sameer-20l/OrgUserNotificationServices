@@ -118,3 +118,7 @@ CLAUDE.md
 
 #===== postman collections (local only, not pushed) ====
 postman/
+
+
+#===== test scripts (local only, not pushed) ====
+tests/
