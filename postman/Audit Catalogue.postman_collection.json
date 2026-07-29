@@ -1,25 +1,25 @@
 {
   "info": {
-    "_postman_id": "0a5c1e00-0000-4000-8000-audit0000002",
-    "name": "Audit Catalogue - Governance & Lifecycle Collection",
-    "description": "# Audit Catalogue - lifecycle walkthrough (for UI integration)\n\nThis collection demonstrates the **append-only audit trail** stored by the audit catalogue. Every governance action on a source registry record (in agri-catalogue-service) is represented as **one immutable audit row** created via `POST /audit/v1/create`.\n\n## How to run\nSet `{{baseUrl}}` (default http://localhost:8080) and `{{api_key}}` (if a gateway enforces it). Run folders in order: **01 Happy path** creates cr-1001's Draft->Submit->Approve->Publish rows (saving auditIds into variables), then **02 Branches** shows rework/reject/toggle/update/delete, **03 Read** shows the before/after diff, **04 Search** shows the facets/filters the UI needs.\n\n## The row model (each POST body)\n- `entityId` + `entityName` - the source record and its catalogue (e.g. cropVariety-...777 / cropVariety).\n- `userId` / `userName` / `userRole` (L0 maker, L1 supervisor, L2 registry admin) - who acted.\n- `operation` - the action: CREATE, DRAFT, SUBMIT, APPROVE, REVIEW, TOGGLE, UPDATE, DELETE.\n- `auditStatus` - the resulting state (UPPERCASE, matches the source): DRAFT, PENDING, APPROVED, REJECTED, REWORK, ACTIVE, INACTIVE, DELETED.\n- `entityBeforeChanges` / `entityAfterChanges` - full record snapshots (empty {} before a CREATE).\n- `changeRequestId` - ties the L0/L1/L2 rows of one change together.\n- `createdOn` / `updatedOn` - ISO-8601 event timestamps.\n\n## Important behaviours\n- **before/after come from `read/{auditId}`, not from search** (they're kept in Postgres and excluded from Elasticsearch for scale). Search returns lean metadata for lists/facets.\n- **Sort the timeline client-side** by createdOn (server-side orderBy on the timestamp isn't wired).\n- **Never DELETE an audit row** - it's an immutable log.\n- The source agri service does not emit these rows yet; this collection defines the contract the producer (or the client) will POST.",
+    "_postman_id": "0a5c1e00-0000-4000-8000-audit0000003",
+    "name": "Audit Catalogue",
+    "description": "Audit logs for registry changes. Every action on a source record is stored as one immutable log via POST /audit/v1/create; a single catalogue serves all registries.\n\nRun the Lifecycle folder top to bottom for a full demo (each request logs one action). Set baseUrl (default http://localhost:8080) and api_key if a gateway needs it.\n\nbefore/after are JSON strings that the client parses; they are indexed in Elasticsearch, so search returns them directly. Sort a timeline by createdOn on the client.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
     {
-      "name": "00 - System Health Verification",
-      "description": "Confirms core application health and API readiness prior to audit operations.",
+      "name": "Health",
+      "description": "",
       "item": [
         {
-          "name": "[GET] Verify System Health & API Availability",
+          "name": "Service health check",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                  "pm.test('status UP', () => pm.expect(pm.response.json().status).to.eql('UP'));"
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('UP', () => pm.expect(pm.response.json().status).to.eql('UP'));"
                 ]
               }
             }
@@ -57,17 +57,17 @@
                 "health"
               ]
             },
-            "description": "Confirm the app is running on {{baseUrl}} before the walkthrough."
+            "description": "Check the service is running before starting."
           }
         }
       ]
     },
     {
-      "name": "01 - Standard Governance Lifecycle Workflow",
-      "description": "Demonstrates the complete multi-tier governance workflow for change-request cr-1001: Draft creation (L0 Maker) -> Review Submission (L0 Maker) -> Supervisor Approval (L1 Checker) -> Final Publication (L2 Admin).",
+      "name": "Lifecycle",
+      "description": "One request per action in the maker-checker flow. Run top to bottom.",
       "item": [
         {
-          "name": "[POST] Create Draft Record - L0 Maker",
+          "name": "Draft",
           "event": [
             {
               "listen": "test",
@@ -75,12 +75,9 @@
                 "type": "text/javascript",
                 "exec": [
                   "var json = pm.response.json();",
-                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                  "pm.test('message = successfully created', () => pm.expect(json.message).to.eql('successfully created'));",
-                  "pm.test('auditId returned', () => pm.expect(json.result.auditId).to.match(/^audit-\\d+$/));",
-                  "pm.collectionVariables.set('auditId', json.result.auditId);",
-                  "pm.collectionVariables.set('auditIdDraft', json.result.auditId);",
-                  "console.log('audit row:', json.result.auditId, json.result.operation, '->', json.result.auditStatus);"
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('created', () => pm.expect(json.message).to.eql('successfully created'));",
+                  "pm.test('auditId returned', () => pm.expect(json.result.auditId).to.match(/^audit-\\d+$/));"
                 ]
               }
             }
@@ -115,7 +112,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"entityId\": \"cropVariety-000000000777\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-100\",\n  \"userName\": \"Asha (Maker)\",\n  \"userRole\": \"L0\",\n  \"operation\": \"DRAFT\",\n  \"auditStatus\": \"DRAFT\",\n  \"changeRequestId\": \"cr-1001\",\n  \"entityBeforeChanges\": {},\n  \"entityAfterChanges\": {\n    \"cropVarietyId\": \"cropVariety-000000000777\",\n    \"name\": \"rice-121\",\n    \"status\": \"DRAFT\"\n  },\n  \"createdOn\": \"2026-07-24T09:00:00Z\",\n  \"updatedOn\": \"2026-07-24T09:00:00Z\"\n}",
+              "raw": "{\n  \"entityId\": \"cropVariety-000000000777\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-100\",\n  \"userName\": \"Asha\",\n  \"auditStatus\": \"DRAFT\",\n  \"entityBeforeChanges\": \"{}\",\n  \"entityAfterChanges\": \"{\\\"cropVarietyId\\\": \\\"cropVariety-000000000777\\\", \\\"name\\\": \\\"rice-121\\\", \\\"status\\\": \\\"DRAFT\\\"}\",\n  \"createdOn\": \"2026-07-24T09:00:00Z\",\n  \"updatedOn\": \"2026-07-24T09:00:00Z\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -133,11 +130,11 @@
                 "create"
               ]
             },
-            "description": "**Maker (L0)** starts a new cropVariety with only partial required fields.\n\n- Source action in agri: `POST /cropvariety/v1/draft` (sets record status `DRAFT`).\n- This audit row: `operation=DRAFT`, `auditStatus=DRAFT`, `entityBeforeChanges={}` (new record), `entityAfterChanges`=the partial draft.\n- **UI**: show a 'Draft' chip; editable by the maker; not yet in any reviewer queue."
+            "description": "Maker saves a partial entry. Logs a DRAFT row; before is empty."
           }
         },
         {
-          "name": "[POST] Submit Entry for Approval - L0 Maker",
+          "name": "Submit for review",
           "event": [
             {
               "listen": "test",
@@ -145,12 +142,10 @@
                 "type": "text/javascript",
                 "exec": [
                   "var json = pm.response.json();",
-                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                  "pm.test('message = successfully created', () => pm.expect(json.message).to.eql('successfully created'));",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('created', () => pm.expect(json.message).to.eql('successfully created'));",
                   "pm.test('auditId returned', () => pm.expect(json.result.auditId).to.match(/^audit-\\d+$/));",
-                  "pm.collectionVariables.set('auditId', json.result.auditId);",
-                  "pm.collectionVariables.set('auditIdSubmit', json.result.auditId);",
-                  "console.log('audit row:', json.result.auditId, json.result.operation, '->', json.result.auditStatus);"
+                  "pm.collectionVariables.set('auditId', json.result.auditId);"
                 ]
               }
             }
@@ -185,7 +180,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"entityId\": \"cropVariety-000000000777\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-100\",\n  \"userName\": \"Asha (Maker)\",\n  \"userRole\": \"L0\",\n  \"operation\": \"SUBMIT\",\n  \"auditStatus\": \"PENDING\",\n  \"changeRequestId\": \"cr-1001\",\n  \"entityBeforeChanges\": {\n    \"cropVarietyId\": \"cropVariety-000000000777\",\n    \"name\": \"rice-121\",\n    \"status\": \"DRAFT\"\n  },\n  \"entityAfterChanges\": {\n    \"cropVarietyId\": \"cropVariety-000000000777\",\n    \"name\": \"rice-121\",\n    \"cropType\": \"Rice\",\n    \"maturityDays\": 140,\n    \"grainType\": \"Long\",\n    \"status\": \"PENDING\"\n  },\n  \"createdOn\": \"2026-07-24T09:20:00Z\",\n  \"updatedOn\": \"2026-07-24T09:20:00Z\"\n}",
+              "raw": "{\n  \"entityId\": \"cropVariety-000000000777\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-100\",\n  \"userName\": \"Asha\",\n  \"auditStatus\": \"PENDING\",\n  \"entityBeforeChanges\": \"{\\\"cropVarietyId\\\": \\\"cropVariety-000000000777\\\", \\\"name\\\": \\\"rice-121\\\", \\\"status\\\": \\\"DRAFT\\\"}\",\n  \"entityAfterChanges\": \"{\\\"cropVarietyId\\\": \\\"cropVariety-000000000777\\\", \\\"name\\\": \\\"rice-121\\\", \\\"cropType\\\": \\\"Rice\\\", \\\"maturityDays\\\": 140, \\\"grainType\\\": \\\"Long\\\", \\\"status\\\": \\\"PENDING\\\"}\",\n  \"createdOn\": \"2026-07-24T09:20:00Z\",\n  \"updatedOn\": \"2026-07-24T09:20:00Z\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -203,11 +198,11 @@
                 "create"
               ]
             },
-            "description": "**Maker (L0)** completes all required fields and submits for review.\n\n- Source: `PUT /cropvariety/v1/add/{id}` (allowed only from DRAFT/REWORK; sets `PENDING`).\n- `operation=SUBMIT`, `auditStatus=PENDING`. before=the draft, after=the full record. The before/after diff now shows the fields that were filled in.\n- **UI**: moves into the **L1 review queue**."
+            "description": "Maker completes the entry and submits. Logs a PENDING row; before/after show the fields added."
           }
         },
         {
-          "name": "[POST] Approve Entry Submission - L1 Supervisor",
+          "name": "Approve",
           "event": [
             {
               "listen": "test",
@@ -215,11 +210,9 @@
                 "type": "text/javascript",
                 "exec": [
                   "var json = pm.response.json();",
-                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                  "pm.test('message = successfully created', () => pm.expect(json.message).to.eql('successfully created'));",
-                  "pm.test('auditId returned', () => pm.expect(json.result.auditId).to.match(/^audit-\\d+$/));",
-                  "pm.collectionVariables.set('auditId', json.result.auditId);",
-                  "console.log('audit row:', json.result.auditId, json.result.operation, '->', json.result.auditStatus);"
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('created', () => pm.expect(json.message).to.eql('successfully created'));",
+                  "pm.test('auditId returned', () => pm.expect(json.result.auditId).to.match(/^audit-\\d+$/));"
                 ]
               }
             }
@@ -254,7 +247,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"entityId\": \"cropVariety-000000000777\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-200\",\n  \"userName\": \"Ravi (Supervisor)\",\n  \"userRole\": \"L1\",\n  \"operation\": \"APPROVE\",\n  \"auditStatus\": \"APPROVED\",\n  \"changeRequestId\": \"cr-1001\",\n  \"entityBeforeChanges\": {\n    \"cropVarietyId\": \"cropVariety-000000000777\",\n    \"name\": \"rice-121\",\n    \"cropType\": \"Rice\",\n    \"maturityDays\": 140,\n    \"grainType\": \"Long\",\n    \"status\": \"PENDING\"\n  },\n  \"entityAfterChanges\": {\n    \"cropVarietyId\": \"cropVariety-000000000777\",\n    \"name\": \"rice-121\",\n    \"cropType\": \"Rice\",\n    \"maturityDays\": 140,\n    \"grainType\": \"Long\",\n    \"status\": \"APPROVED\"\n  },\n  \"createdOn\": \"2026-07-24T11:00:00Z\",\n  \"updatedOn\": \"2026-07-24T11:00:00Z\"\n}",
+              "raw": "{\n  \"entityId\": \"cropVariety-000000000777\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-200\",\n  \"userName\": \"Ravi\",\n  \"auditStatus\": \"APPROVED\",\n  \"entityBeforeChanges\": \"{\\\"cropVarietyId\\\": \\\"cropVariety-000000000777\\\", \\\"name\\\": \\\"rice-121\\\", \\\"cropType\\\": \\\"Rice\\\", \\\"maturityDays\\\": 140, \\\"grainType\\\": \\\"Long\\\", \\\"status\\\": \\\"PENDING\\\"}\",\n  \"entityAfterChanges\": \"{\\\"cropVarietyId\\\": \\\"cropVariety-000000000777\\\", \\\"name\\\": \\\"rice-121\\\", \\\"cropType\\\": \\\"Rice\\\", \\\"maturityDays\\\": 140, \\\"grainType\\\": \\\"Long\\\", \\\"status\\\": \\\"APPROVED\\\"}\",\n  \"createdOn\": \"2026-07-24T11:00:00Z\",\n  \"updatedOn\": \"2026-07-24T11:00:00Z\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -272,11 +265,11 @@
                 "create"
               ]
             },
-            "description": "**Supervisor (L1)** approves the pending change.\n\n- Source: `PUT /cropvariety/v1/approve` with body `{id, status:\"APPROVED\"}` (only from PENDING).\n- `operation=APPROVE`, `auditStatus=APPROVED`. The diff shows the status moving PENDING -> APPROVED.\n- **UI**: moves into the **L2 publish queue**."
+            "description": "Supervisor approves the pending change. Logs an APPROVED row."
           }
         },
         {
-          "name": "[POST] Publish Entry to Active State - L2 Admin",
+          "name": "Publish",
           "event": [
             {
               "listen": "test",
@@ -284,12 +277,9 @@
                 "type": "text/javascript",
                 "exec": [
                   "var json = pm.response.json();",
-                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                  "pm.test('message = successfully created', () => pm.expect(json.message).to.eql('successfully created'));",
-                  "pm.test('auditId returned', () => pm.expect(json.result.auditId).to.match(/^audit-\\d+$/));",
-                  "pm.collectionVariables.set('auditId', json.result.auditId);",
-                  "pm.collectionVariables.set('auditIdPublish', json.result.auditId);",
-                  "console.log('audit row:', json.result.auditId, json.result.operation, '->', json.result.auditStatus);"
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('created', () => pm.expect(json.message).to.eql('successfully created'));",
+                  "pm.test('auditId returned', () => pm.expect(json.result.auditId).to.match(/^audit-\\d+$/));"
                 ]
               }
             }
@@ -324,7 +314,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"entityId\": \"cropVariety-000000000777\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-300\",\n  \"userName\": \"Meera (Registry Admin)\",\n  \"userRole\": \"L2\",\n  \"operation\": \"REVIEW\",\n  \"auditStatus\": \"ACTIVE\",\n  \"changeRequestId\": \"cr-1001\",\n  \"entityBeforeChanges\": {\n    \"cropVarietyId\": \"cropVariety-000000000777\",\n    \"name\": \"rice-121\",\n    \"cropType\": \"Rice\",\n    \"maturityDays\": 140,\n    \"grainType\": \"Long\",\n    \"status\": \"APPROVED\"\n  },\n  \"entityAfterChanges\": {\n    \"cropVarietyId\": \"cropVariety-000000000777\",\n    \"name\": \"rice-121\",\n    \"cropType\": \"Rice\",\n    \"maturityDays\": 140,\n    \"grainType\": \"Long\",\n    \"status\": \"ACTIVE\"\n  },\n  \"createdOn\": \"2026-07-24T15:00:00Z\",\n  \"updatedOn\": \"2026-07-24T15:00:00Z\"\n}",
+              "raw": "{\n  \"entityId\": \"cropVariety-000000000777\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-300\",\n  \"userName\": \"Meera\",\n  \"auditStatus\": \"ACTIVE\",\n  \"entityBeforeChanges\": \"{\\\"cropVarietyId\\\": \\\"cropVariety-000000000777\\\", \\\"name\\\": \\\"rice-121\\\", \\\"cropType\\\": \\\"Rice\\\", \\\"maturityDays\\\": 140, \\\"grainType\\\": \\\"Long\\\", \\\"status\\\": \\\"APPROVED\\\"}\",\n  \"entityAfterChanges\": \"{\\\"cropVarietyId\\\": \\\"cropVariety-000000000777\\\", \\\"name\\\": \\\"rice-121\\\", \\\"cropType\\\": \\\"Rice\\\", \\\"maturityDays\\\": 140, \\\"grainType\\\": \\\"Long\\\", \\\"status\\\": \\\"ACTIVE\\\"}\",\n  \"createdOn\": \"2026-07-24T15:00:00Z\",\n  \"updatedOn\": \"2026-07-24T15:00:00Z\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -342,17 +332,419 @@
                 "create"
               ]
             },
-            "description": "**Registry Admin (L2)** publishes; the record goes live.\n\n- Source: `PUT /cropvariety/v1/review` with `{id, status:\"ACTIVE\"}` (only from APPROVED; `PUBLISHED` is accepted and normalised to `ACTIVE`).\n- `operation=REVIEW`, `auditStatus=ACTIVE`.\n- **UI**: the record is now **visible to everyone**. This completes change-request `cr-1001`."
+            "description": "Registry admin publishes; the record goes live. Logs an ACTIVE row."
+          }
+        },
+        {
+          "name": "Send back for rework",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('created', () => pm.expect(json.message).to.eql('successfully created'));",
+                  "pm.test('auditId returned', () => pm.expect(json.result.auditId).to.match(/^audit-\\d+$/));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entityId\": \"cropVariety-000000000778\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-200\",\n  \"userName\": \"Ravi\",\n  \"auditStatus\": \"REWORK\",\n  \"entityBeforeChanges\": \"{\\\"cropVarietyId\\\": \\\"cropVariety-000000000778\\\", \\\"name\\\": \\\"sona-masoori\\\", \\\"cropType\\\": \\\"Rice\\\", \\\"maturityDays\\\": 150, \\\"grainType\\\": \\\"Medium\\\", \\\"status\\\": \\\"PENDING\\\"}\",\n  \"entityAfterChanges\": \"{\\\"cropVarietyId\\\": \\\"cropVariety-000000000778\\\", \\\"name\\\": \\\"sona-masoori\\\", \\\"cropType\\\": \\\"Rice\\\", \\\"maturityDays\\\": 150, \\\"grainType\\\": \\\"Medium\\\", \\\"status\\\": \\\"REWORK\\\"}\",\n  \"createdOn\": \"2026-07-24T12:00:00Z\",\n  \"updatedOn\": \"2026-07-24T12:00:00Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/audit/v1/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "audit",
+                "v1",
+                "create"
+              ]
+            },
+            "description": "Supervisor returns a change for rework. Logs a REWORK row; the maker will fix and resubmit."
+          }
+        },
+        {
+          "name": "Reject",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('created', () => pm.expect(json.message).to.eql('successfully created'));",
+                  "pm.test('auditId returned', () => pm.expect(json.result.auditId).to.match(/^audit-\\d+$/));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entityId\": \"cropVariety-000000000779\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-200\",\n  \"userName\": \"Ravi\",\n  \"auditStatus\": \"REJECTED\",\n  \"entityBeforeChanges\": \"{\\\"cropVarietyId\\\": \\\"cropVariety-000000000779\\\", \\\"name\\\": \\\"duplicate-121\\\", \\\"cropType\\\": \\\"Rice\\\", \\\"maturityDays\\\": 150, \\\"grainType\\\": \\\"Medium\\\", \\\"status\\\": \\\"PENDING\\\"}\",\n  \"entityAfterChanges\": \"{\\\"cropVarietyId\\\": \\\"cropVariety-000000000779\\\", \\\"name\\\": \\\"duplicate-121\\\", \\\"cropType\\\": \\\"Rice\\\", \\\"maturityDays\\\": 150, \\\"grainType\\\": \\\"Medium\\\", \\\"status\\\": \\\"REJECTED\\\"}\",\n  \"createdOn\": \"2026-07-24T13:00:00Z\",\n  \"updatedOn\": \"2026-07-24T13:00:00Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/audit/v1/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "audit",
+                "v1",
+                "create"
+              ]
+            },
+            "description": "Supervisor rejects a change (terminal). Logs a REJECTED row."
+          }
+        },
+        {
+          "name": "Update",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('created', () => pm.expect(json.message).to.eql('successfully created'));",
+                  "pm.test('auditId returned', () => pm.expect(json.result.auditId).to.match(/^audit-\\d+$/));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entityId\": \"cropVariety-000000000777\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-100\",\n  \"userName\": \"Asha\",\n  \"auditStatus\": \"ACTIVE\",\n  \"entityBeforeChanges\": \"{\\\"cropVarietyId\\\": \\\"cropVariety-000000000777\\\", \\\"name\\\": \\\"rice-121\\\", \\\"cropType\\\": \\\"Rice\\\", \\\"maturityDays\\\": 140, \\\"grainType\\\": \\\"Long\\\", \\\"status\\\": \\\"ACTIVE\\\"}\",\n  \"entityAfterChanges\": \"{\\\"cropVarietyId\\\": \\\"cropVariety-000000000777\\\", \\\"name\\\": \\\"rice-121\\\", \\\"cropType\\\": \\\"Rice\\\", \\\"maturityDays\\\": 135, \\\"grainType\\\": \\\"Long\\\", \\\"status\\\": \\\"ACTIVE\\\"}\",\n  \"createdOn\": \"2026-07-25T09:00:00Z\",\n  \"updatedOn\": \"2026-07-25T09:00:00Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/audit/v1/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "audit",
+                "v1",
+                "create"
+              ]
+            },
+            "description": "An edit to a live record. Logs a row with the field change (maturityDays 140 to 135); status stays ACTIVE."
+          }
+        },
+        {
+          "name": "Deactivate",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('created', () => pm.expect(json.message).to.eql('successfully created'));",
+                  "pm.test('auditId returned', () => pm.expect(json.result.auditId).to.match(/^audit-\\d+$/));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entityId\": \"cropVariety-000000000777\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-300\",\n  \"userName\": \"Meera\",\n  \"auditStatus\": \"INACTIVE\",\n  \"entityBeforeChanges\": \"{\\\"cropVarietyId\\\": \\\"cropVariety-000000000777\\\", \\\"name\\\": \\\"rice-121\\\", \\\"cropType\\\": \\\"Rice\\\", \\\"maturityDays\\\": 140, \\\"grainType\\\": \\\"Long\\\", \\\"status\\\": \\\"ACTIVE\\\"}\",\n  \"entityAfterChanges\": \"{\\\"cropVarietyId\\\": \\\"cropVariety-000000000777\\\", \\\"name\\\": \\\"rice-121\\\", \\\"cropType\\\": \\\"Rice\\\", \\\"maturityDays\\\": 140, \\\"grainType\\\": \\\"Long\\\", \\\"status\\\": \\\"INACTIVE\\\"}\",\n  \"createdOn\": \"2026-07-25T10:00:00Z\",\n  \"updatedOn\": \"2026-07-25T10:00:00Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/audit/v1/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "audit",
+                "v1",
+                "create"
+              ]
+            },
+            "description": "Registry admin temporarily hides a live record. Logs an INACTIVE row."
+          }
+        },
+        {
+          "name": "Reactivate",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('created', () => pm.expect(json.message).to.eql('successfully created'));",
+                  "pm.test('auditId returned', () => pm.expect(json.result.auditId).to.match(/^audit-\\d+$/));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entityId\": \"cropVariety-000000000777\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-300\",\n  \"userName\": \"Meera\",\n  \"auditStatus\": \"ACTIVE\",\n  \"entityBeforeChanges\": \"{\\\"cropVarietyId\\\": \\\"cropVariety-000000000777\\\", \\\"name\\\": \\\"rice-121\\\", \\\"cropType\\\": \\\"Rice\\\", \\\"maturityDays\\\": 140, \\\"grainType\\\": \\\"Long\\\", \\\"status\\\": \\\"INACTIVE\\\"}\",\n  \"entityAfterChanges\": \"{\\\"cropVarietyId\\\": \\\"cropVariety-000000000777\\\", \\\"name\\\": \\\"rice-121\\\", \\\"cropType\\\": \\\"Rice\\\", \\\"maturityDays\\\": 140, \\\"grainType\\\": \\\"Long\\\", \\\"status\\\": \\\"ACTIVE\\\"}\",\n  \"createdOn\": \"2026-07-25T11:00:00Z\",\n  \"updatedOn\": \"2026-07-25T11:00:00Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/audit/v1/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "audit",
+                "v1",
+                "create"
+              ]
+            },
+            "description": "Registry admin makes the record visible again. Logs an ACTIVE row."
+          }
+        },
+        {
+          "name": "Delete",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('created', () => pm.expect(json.message).to.eql('successfully created'));",
+                  "pm.test('auditId returned', () => pm.expect(json.result.auditId).to.match(/^audit-\\d+$/));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entityId\": \"cropVariety-000000000777\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-300\",\n  \"userName\": \"Meera\",\n  \"auditStatus\": \"DELETED\",\n  \"entityBeforeChanges\": \"{\\\"cropVarietyId\\\": \\\"cropVariety-000000000777\\\", \\\"name\\\": \\\"rice-121\\\", \\\"cropType\\\": \\\"Rice\\\", \\\"maturityDays\\\": 140, \\\"grainType\\\": \\\"Long\\\", \\\"status\\\": \\\"ACTIVE\\\"}\",\n  \"entityAfterChanges\": \"{\\\"cropVarietyId\\\": \\\"cropVariety-000000000777\\\", \\\"name\\\": \\\"rice-121\\\", \\\"cropType\\\": \\\"Rice\\\", \\\"maturityDays\\\": 140, \\\"grainType\\\": \\\"Long\\\", \\\"status\\\": \\\"DELETED\\\"}\",\n  \"createdOn\": \"2026-07-25T12:00:00Z\",\n  \"updatedOn\": \"2026-07-25T12:00:00Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/audit/v1/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "audit",
+                "v1",
+                "create"
+              ]
+            },
+            "description": "Registry admin soft-deletes the record. Logs a DELETED row."
           }
         }
       ]
     },
     {
-      "name": "02 - Alternate Workflows & Post-Publish Operations",
-      "description": "Demonstrates non-standard governance flows and post-publication state transitions: supervisor rework requests, submission rejections, live record updates, status toggles (Active <-> Inactive), and soft deletions.",
+      "name": "Retrieve",
+      "description": "Read a single audit log by id.",
       "item": [
         {
-          "name": "[POST] Request Submission Rework - L1 Supervisor",
+          "name": "Get audit log by id",
           "event": [
             {
               "listen": "test",
@@ -360,497 +752,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "var json = pm.response.json();",
-                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                  "pm.test('message = successfully created', () => pm.expect(json.message).to.eql('successfully created'));",
-                  "pm.test('auditId returned', () => pm.expect(json.result.auditId).to.match(/^audit-\\d+$/));",
-                  "pm.collectionVariables.set('auditId', json.result.auditId);",
-                  "console.log('audit row:', json.result.auditId, json.result.operation, '->', json.result.auditStatus);"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "auth": {
-              "type": "apikey",
-              "apikey": [
-                {
-                  "key": "key",
-                  "value": "apikey",
-                  "type": "string"
-                },
-                {
-                  "key": "value",
-                  "value": "{{api_key}}",
-                  "type": "string"
-                },
-                {
-                  "key": "in",
-                  "value": "header",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"entityId\": \"cropVariety-000000000778\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-200\",\n  \"userName\": \"Ravi (Supervisor)\",\n  \"userRole\": \"L1\",\n  \"operation\": \"APPROVE\",\n  \"auditStatus\": \"REWORK\",\n  \"changeRequestId\": \"cr-1002\",\n  \"entityBeforeChanges\": {\n    \"cropVarietyId\": \"cropVariety-000000000778\",\n    \"name\": \"sona-masoori\",\n    \"cropType\": \"Rice\",\n    \"maturityDays\": 150,\n    \"grainType\": \"Medium\",\n    \"status\": \"PENDING\"\n  },\n  \"entityAfterChanges\": {\n    \"cropVarietyId\": \"cropVariety-000000000778\",\n    \"name\": \"sona-masoori\",\n    \"cropType\": \"Rice\",\n    \"maturityDays\": 150,\n    \"grainType\": \"Medium\",\n    \"status\": \"REWORK\"\n  },\n  \"createdOn\": \"2026-07-24T12:00:00Z\",\n  \"updatedOn\": \"2026-07-24T12:00:00Z\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/audit/v1/create",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "audit",
-                "v1",
-                "create"
-              ]
-            },
-            "description": "**Supervisor (L1)** returns a pending change for rework (e.g. bad data).\n\n- Source: `PUT /cropvariety/v1/approve` with `{id, status:\"REWORK\"}`.\n- `operation=APPROVE`, `auditStatus=REWORK`. The maker will fix it and re-SUBMIT (back to PENDING).\n- **UI**: returns to the maker's queue with a 'Rework' badge."
-          }
-        },
-        {
-          "name": "[POST] Create Submission for Rejection Test - L0 Maker",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "var json = pm.response.json();",
-                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                  "pm.test('message = successfully created', () => pm.expect(json.message).to.eql('successfully created'));",
-                  "pm.test('auditId returned', () => pm.expect(json.result.auditId).to.match(/^audit-\\d+$/));",
-                  "pm.collectionVariables.set('auditId', json.result.auditId);",
-                  "console.log('audit row:', json.result.auditId, json.result.operation, '->', json.result.auditStatus);"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "auth": {
-              "type": "apikey",
-              "apikey": [
-                {
-                  "key": "key",
-                  "value": "apikey",
-                  "type": "string"
-                },
-                {
-                  "key": "value",
-                  "value": "{{api_key}}",
-                  "type": "string"
-                },
-                {
-                  "key": "in",
-                  "value": "header",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"entityId\": \"cropVariety-000000000779\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-100\",\n  \"userName\": \"Asha (Maker)\",\n  \"userRole\": \"L0\",\n  \"operation\": \"CREATE\",\n  \"auditStatus\": \"PENDING\",\n  \"changeRequestId\": \"cr-1003\",\n  \"entityBeforeChanges\": {},\n  \"entityAfterChanges\": {\n    \"cropVarietyId\": \"cropVariety-000000000779\",\n    \"name\": \"duplicate-121\",\n    \"cropType\": \"Rice\",\n    \"maturityDays\": 150,\n    \"grainType\": \"Medium\",\n    \"status\": \"PENDING\"\n  },\n  \"createdOn\": \"2026-07-24T13:00:00Z\",\n  \"updatedOn\": \"2026-07-24T13:00:00Z\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/audit/v1/create",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "audit",
-                "v1",
-                "create"
-              ]
-            },
-            "description": "**Maker (L0)** creates a full entry directly (no draft).\n\n- Source: `POST /cropvariety/v1/create` (full validation; sets `PENDING`).\n- `operation=CREATE`, `auditStatus=PENDING`, before={}."
-          }
-        },
-        {
-          "name": "[POST] Reject Submission Terminal State - L1 Supervisor",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "var json = pm.response.json();",
-                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                  "pm.test('message = successfully created', () => pm.expect(json.message).to.eql('successfully created'));",
-                  "pm.test('auditId returned', () => pm.expect(json.result.auditId).to.match(/^audit-\\d+$/));",
-                  "pm.collectionVariables.set('auditId', json.result.auditId);",
-                  "console.log('audit row:', json.result.auditId, json.result.operation, '->', json.result.auditStatus);"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "auth": {
-              "type": "apikey",
-              "apikey": [
-                {
-                  "key": "key",
-                  "value": "apikey",
-                  "type": "string"
-                },
-                {
-                  "key": "value",
-                  "value": "{{api_key}}",
-                  "type": "string"
-                },
-                {
-                  "key": "in",
-                  "value": "header",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"entityId\": \"cropVariety-000000000779\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-200\",\n  \"userName\": \"Ravi (Supervisor)\",\n  \"userRole\": \"L1\",\n  \"operation\": \"APPROVE\",\n  \"auditStatus\": \"REJECTED\",\n  \"changeRequestId\": \"cr-1003\",\n  \"entityBeforeChanges\": {\n    \"cropVarietyId\": \"cropVariety-000000000779\",\n    \"name\": \"duplicate-121\",\n    \"cropType\": \"Rice\",\n    \"maturityDays\": 150,\n    \"grainType\": \"Medium\",\n    \"status\": \"PENDING\"\n  },\n  \"entityAfterChanges\": {\n    \"cropVarietyId\": \"cropVariety-000000000779\",\n    \"name\": \"duplicate-121\",\n    \"cropType\": \"Rice\",\n    \"maturityDays\": 150,\n    \"grainType\": \"Medium\",\n    \"status\": \"REJECTED\"\n  },\n  \"createdOn\": \"2026-07-24T13:30:00Z\",\n  \"updatedOn\": \"2026-07-24T13:30:00Z\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/audit/v1/create",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "audit",
-                "v1",
-                "create"
-              ]
-            },
-            "description": "**Supervisor (L1)** rejects the change (terminal \u2014 no endpoint moves a record out of REJECTED).\n\n- Source: `PUT /cropvariety/v1/approve` with `{id, status:\"REJECTED\"}`.\n- `operation=APPROVE`, `auditStatus=REJECTED`."
-          }
-        },
-        {
-          "name": "[POST] Update Published Record Metadata - L0 Maker",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "var json = pm.response.json();",
-                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                  "pm.test('message = successfully created', () => pm.expect(json.message).to.eql('successfully created'));",
-                  "pm.test('auditId returned', () => pm.expect(json.result.auditId).to.match(/^audit-\\d+$/));",
-                  "pm.collectionVariables.set('auditId', json.result.auditId);",
-                  "console.log('audit row:', json.result.auditId, json.result.operation, '->', json.result.auditStatus);"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "auth": {
-              "type": "apikey",
-              "apikey": [
-                {
-                  "key": "key",
-                  "value": "apikey",
-                  "type": "string"
-                },
-                {
-                  "key": "value",
-                  "value": "{{api_key}}",
-                  "type": "string"
-                },
-                {
-                  "key": "in",
-                  "value": "header",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"entityId\": \"cropVariety-000000000777\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-100\",\n  \"userName\": \"Asha (Maker)\",\n  \"userRole\": \"L0\",\n  \"operation\": \"UPDATE\",\n  \"auditStatus\": \"ACTIVE\",\n  \"changeRequestId\": \"cr-1004\",\n  \"entityBeforeChanges\": {\n    \"cropVarietyId\": \"cropVariety-000000000777\",\n    \"name\": \"rice-121\",\n    \"cropType\": \"Rice\",\n    \"maturityDays\": 140,\n    \"grainType\": \"Long\",\n    \"status\": \"ACTIVE\"\n  },\n  \"entityAfterChanges\": {\n    \"cropVarietyId\": \"cropVariety-000000000777\",\n    \"name\": \"rice-121\",\n    \"cropType\": \"Rice\",\n    \"maturityDays\": 135,\n    \"grainType\": \"Long\",\n    \"status\": \"ACTIVE\"\n  },\n  \"createdOn\": \"2026-07-25T09:00:00Z\",\n  \"updatedOn\": \"2026-07-25T09:00:00Z\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/audit/v1/create",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "audit",
-                "v1",
-                "create"
-              ]
-            },
-            "description": "**Maker (L0)** edits a live record in place (status preserved).\n\n- Source: `PUT /cropvariety/v1/update/{id}` (rejected only if DELETED).\n- `operation=UPDATE`, `auditStatus=ACTIVE`. Here maturityDays 140 -> 135; the before/after diff shows the field change."
-          }
-        },
-        {
-          "name": "[POST] Deactivate Record State - L2 Admin",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "var json = pm.response.json();",
-                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                  "pm.test('message = successfully created', () => pm.expect(json.message).to.eql('successfully created'));",
-                  "pm.test('auditId returned', () => pm.expect(json.result.auditId).to.match(/^audit-\\d+$/));",
-                  "pm.collectionVariables.set('auditId', json.result.auditId);",
-                  "console.log('audit row:', json.result.auditId, json.result.operation, '->', json.result.auditStatus);"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "auth": {
-              "type": "apikey",
-              "apikey": [
-                {
-                  "key": "key",
-                  "value": "apikey",
-                  "type": "string"
-                },
-                {
-                  "key": "value",
-                  "value": "{{api_key}}",
-                  "type": "string"
-                },
-                {
-                  "key": "in",
-                  "value": "header",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"entityId\": \"cropVariety-000000000777\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-300\",\n  \"userName\": \"Meera (Registry Admin)\",\n  \"userRole\": \"L2\",\n  \"operation\": \"TOGGLE\",\n  \"auditStatus\": \"INACTIVE\",\n  \"changeRequestId\": \"cr-1005\",\n  \"entityBeforeChanges\": {\n    \"cropVarietyId\": \"cropVariety-000000000777\",\n    \"name\": \"rice-121\",\n    \"cropType\": \"Rice\",\n    \"maturityDays\": 140,\n    \"grainType\": \"Long\",\n    \"status\": \"ACTIVE\"\n  },\n  \"entityAfterChanges\": {\n    \"cropVarietyId\": \"cropVariety-000000000777\",\n    \"name\": \"rice-121\",\n    \"cropType\": \"Rice\",\n    \"maturityDays\": 140,\n    \"grainType\": \"Long\",\n    \"status\": \"INACTIVE\"\n  },\n  \"createdOn\": \"2026-07-25T10:00:00Z\",\n  \"updatedOn\": \"2026-07-25T10:00:00Z\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/audit/v1/create",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "audit",
-                "v1",
-                "create"
-              ]
-            },
-            "description": "**Registry Admin (L2)** temporarily hides a live record.\n\n- Source: `PUT /cropvariety/v1/toggle/{id}` (flips ACTIVE<->INACTIVE).\n- `operation=TOGGLE`, `auditStatus=INACTIVE`.\n- **UI**: hidden from everyone except the Registry Admin."
-          }
-        },
-        {
-          "name": "[POST] Reactivate Record State - L2 Admin",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "var json = pm.response.json();",
-                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                  "pm.test('message = successfully created', () => pm.expect(json.message).to.eql('successfully created'));",
-                  "pm.test('auditId returned', () => pm.expect(json.result.auditId).to.match(/^audit-\\d+$/));",
-                  "pm.collectionVariables.set('auditId', json.result.auditId);",
-                  "console.log('audit row:', json.result.auditId, json.result.operation, '->', json.result.auditStatus);"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "auth": {
-              "type": "apikey",
-              "apikey": [
-                {
-                  "key": "key",
-                  "value": "apikey",
-                  "type": "string"
-                },
-                {
-                  "key": "value",
-                  "value": "{{api_key}}",
-                  "type": "string"
-                },
-                {
-                  "key": "in",
-                  "value": "header",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"entityId\": \"cropVariety-000000000777\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-300\",\n  \"userName\": \"Meera (Registry Admin)\",\n  \"userRole\": \"L2\",\n  \"operation\": \"TOGGLE\",\n  \"auditStatus\": \"ACTIVE\",\n  \"changeRequestId\": \"cr-1006\",\n  \"entityBeforeChanges\": {\n    \"cropVarietyId\": \"cropVariety-000000000777\",\n    \"name\": \"rice-121\",\n    \"cropType\": \"Rice\",\n    \"maturityDays\": 140,\n    \"grainType\": \"Long\",\n    \"status\": \"INACTIVE\"\n  },\n  \"entityAfterChanges\": {\n    \"cropVarietyId\": \"cropVariety-000000000777\",\n    \"name\": \"rice-121\",\n    \"cropType\": \"Rice\",\n    \"maturityDays\": 140,\n    \"grainType\": \"Long\",\n    \"status\": \"ACTIVE\"\n  },\n  \"createdOn\": \"2026-07-25T11:00:00Z\",\n  \"updatedOn\": \"2026-07-25T11:00:00Z\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/audit/v1/create",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "audit",
-                "v1",
-                "create"
-              ]
-            },
-            "description": "**Registry Admin (L2)** makes the record visible again.\n\n- Source: `PUT /cropvariety/v1/toggle/{id}`.\n- `operation=TOGGLE`, `auditStatus=ACTIVE`."
-          }
-        },
-        {
-          "name": "[POST] Record Soft Delete Event - L2 Admin",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "var json = pm.response.json();",
-                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                  "pm.test('message = successfully created', () => pm.expect(json.message).to.eql('successfully created'));",
-                  "pm.test('auditId returned', () => pm.expect(json.result.auditId).to.match(/^audit-\\d+$/));",
-                  "pm.collectionVariables.set('auditId', json.result.auditId);",
-                  "console.log('audit row:', json.result.auditId, json.result.operation, '->', json.result.auditStatus);"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "auth": {
-              "type": "apikey",
-              "apikey": [
-                {
-                  "key": "key",
-                  "value": "apikey",
-                  "type": "string"
-                },
-                {
-                  "key": "value",
-                  "value": "{{api_key}}",
-                  "type": "string"
-                },
-                {
-                  "key": "in",
-                  "value": "header",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"entityId\": \"cropVariety-000000000777\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-300\",\n  \"userName\": \"Meera (Registry Admin)\",\n  \"userRole\": \"L2\",\n  \"operation\": \"DELETE\",\n  \"auditStatus\": \"DELETED\",\n  \"changeRequestId\": \"cr-1007\",\n  \"entityBeforeChanges\": {\n    \"cropVarietyId\": \"cropVariety-000000000777\",\n    \"name\": \"rice-121\",\n    \"cropType\": \"Rice\",\n    \"maturityDays\": 140,\n    \"grainType\": \"Long\",\n    \"status\": \"ACTIVE\"\n  },\n  \"entityAfterChanges\": {\n    \"cropVarietyId\": \"cropVariety-000000000777\",\n    \"name\": \"rice-121\",\n    \"cropType\": \"Rice\",\n    \"maturityDays\": 140,\n    \"grainType\": \"Long\",\n    \"status\": \"DELETED\"\n  },\n  \"createdOn\": \"2026-07-25T12:00:00Z\",\n  \"updatedOn\": \"2026-07-25T12:00:00Z\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/audit/v1/create",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "audit",
-                "v1",
-                "create"
-              ]
-            },
-            "description": "**Registry Admin (L2)** soft-deletes the record.\n\n- Source: `DELETE /cropvariety/v1/delete/{id}` (sets `DELETED`; evicts ES + cache in the source catalogue).\n- `operation=DELETE`, `auditStatus=DELETED`."
-          }
-        }
-      ]
-    },
-    {
-      "name": "03 - Audit Record Inspection & Payload Diffs",
-      "description": "Retrieves complete audit logs by audit ID from PostgreSQL/Redis, returning full entityBeforeChanges and entityAfterChanges snapshots for detailed state diffing.",
-      "item": [
-        {
-          "name": "[GET] Fetch Submission Audit Record & Payload Diff",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "var json = pm.response.json();",
-                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                  "pm.test('has before + after', () => { var r = JSON.stringify(json.result); pm.expect(r).to.include('entityBeforeChanges'); pm.expect(r).to.include('entityAfterChanges'); });"
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('returns the row', () => pm.expect(json.message).to.eql('successfully read'));"
                 ]
               }
             }
@@ -879,7 +782,7 @@
             },
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/audit/v1/read/{{auditIdSubmit}}",
+              "raw": "{{baseUrl}}/audit/v1/read/{{auditId}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -887,73 +790,20 @@
                 "audit",
                 "v1",
                 "read",
-                "{{auditIdSubmit}}"
+                "{{auditId}}"
               ]
             },
-            "description": "Detail view for the audit row. **before/after are returned by READ (from Postgres), not by search** (they're excluded from Elasticsearch for scale). The UI opens a row -> calls this -> renders the diff."
-          }
-        },
-        {
-          "name": "[GET] Fetch Publication Audit Record & Payload Diff",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "var json = pm.response.json();",
-                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                  "pm.test('after status ACTIVE', () => pm.expect(JSON.stringify(json.result)).to.include('ACTIVE'));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "auth": {
-              "type": "apikey",
-              "apikey": [
-                {
-                  "key": "key",
-                  "value": "apikey",
-                  "type": "string"
-                },
-                {
-                  "key": "value",
-                  "value": "{{api_key}}",
-                  "type": "string"
-                },
-                {
-                  "key": "in",
-                  "value": "header",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/audit/v1/read/{{auditIdPublish}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "audit",
-                "v1",
-                "read",
-                "{{auditIdPublish}}"
-              ]
-            },
-            "description": "Shows the status transition APPROVED -> ACTIVE captured in before/after."
+            "description": "Fetch one audit log by its auditId (full row). Uses the id saved by 'Submit for review'."
           }
         }
       ]
     },
     {
-      "name": "04 - Search, Timeline Filtering & Analytical Facets",
-      "description": "Executes Elasticsearch-backed searches for timeline tracking, entity history, change-request correlation, and multi-dimensional faceting.",
+      "name": "Search",
+      "description": "List, filter and facet the audit logs.",
       "item": [
         {
-          "name": "[POST] Query All Audit Log Entries",
+          "name": "Search all",
           "event": [
             {
               "listen": "test",
@@ -961,10 +811,9 @@
                 "type": "text/javascript",
                 "exec": [
                   "var json = pm.response.json();",
-                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
                   "var sr = json.result && json.result.result;",
-                  "pm.test('has totalCount', () => pm.expect(sr).to.have.property('totalCount'));",
-                  "console.log('totalCount =', sr.totalCount);"
+                  "pm.test('has totalCount', () => pm.expect(sr).to.have.property('totalCount'));"
                 ]
               }
             }
@@ -1017,11 +866,11 @@
                 "search"
               ]
             },
-            "description": "Every audit row across all catalogues."
+            "description": "All audit logs."
           }
         },
         {
-          "name": "[POST] Filter Audit Trails by Catalogue (entityName)",
+          "name": "Filter by catalogue",
           "event": [
             {
               "listen": "test",
@@ -1029,10 +878,9 @@
                 "type": "text/javascript",
                 "exec": [
                   "var json = pm.response.json();",
-                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
                   "var sr = json.result && json.result.result;",
-                  "pm.test('has totalCount', () => pm.expect(sr).to.have.property('totalCount'));",
-                  "console.log('totalCount =', sr.totalCount);"
+                  "pm.test('has totalCount', () => pm.expect(sr).to.have.property('totalCount'));"
                 ]
               }
             }
@@ -1085,11 +933,11 @@
                 "search"
               ]
             },
-            "description": "Per-catalogue filter (facet the UI's registry/catalogue selector on entityName)."
+            "description": "Audit logs for one catalogue (entityName)."
           }
         },
         {
-          "name": "[POST] Retrieve Complete Audit Trail for Entity ID",
+          "name": "Record history",
           "event": [
             {
               "listen": "test",
@@ -1097,10 +945,9 @@
                 "type": "text/javascript",
                 "exec": [
                   "var json = pm.response.json();",
-                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
                   "var sr = json.result && json.result.result;",
-                  "pm.test('has totalCount', () => pm.expect(sr).to.have.property('totalCount'));",
-                  "console.log('totalCount =', sr.totalCount);"
+                  "pm.test('has totalCount', () => pm.expect(sr).to.have.property('totalCount'));"
                 ]
               }
             }
@@ -1153,11 +1000,11 @@
                 "search"
               ]
             },
-            "description": "All audit rows for a single record. Sort by createdOn **client-side** to render the timeline."
+            "description": "All audit logs for one record (entityId). Sort by createdOn on the client to show the timeline."
           }
         },
         {
-          "name": "[POST] Correlate Audit Logs by Change Request ID",
+          "name": "Filter by status",
           "event": [
             {
               "listen": "test",
@@ -1165,149 +1012,9 @@
                 "type": "text/javascript",
                 "exec": [
                   "var json = pm.response.json();",
-                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
                   "var sr = json.result && json.result.result;",
-                  "pm.test('has totalCount', () => pm.expect(sr).to.have.property('totalCount'));",
-                  "console.log('totalCount =', sr.totalCount);",
-                  "pm.test('cr-1001 has its 4 lifecycle rows', () => pm.expect(sr.totalCount).to.be.at.least(4));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "auth": {
-              "type": "apikey",
-              "apikey": [
-                {
-                  "key": "key",
-                  "value": "apikey",
-                  "type": "string"
-                },
-                {
-                  "key": "value",
-                  "value": "{{api_key}}",
-                  "type": "string"
-                },
-                {
-                  "key": "in",
-                  "value": "header",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"filterCriteriaMap\": {\n    \"changeRequestId\": \"cr-1001\"\n  },\n  \"pageNumber\": 0,\n  \"pageSize\": 100\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/audit/v1/search",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "audit",
-                "v1",
-                "search"
-              ]
-            },
-            "description": "The Draft->Submit->Approve->Publish chain of ONE change-request (why changeRequestId is useful)."
-          }
-        },
-        {
-          "name": "[POST] Aggregate Analytical Facets Across Audit Logs",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "var json = pm.response.json();",
-                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                  "var sr = json.result && json.result.result;",
-                  "pm.test('has totalCount', () => pm.expect(sr).to.have.property('totalCount'));",
-                  "console.log('totalCount =', sr.totalCount);",
-                  "pm.test('facets present', () => pm.expect(sr).to.have.property('facets'));",
-                  "console.log('facets =', JSON.stringify(sr.facets));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "auth": {
-              "type": "apikey",
-              "apikey": [
-                {
-                  "key": "key",
-                  "value": "apikey",
-                  "type": "string"
-                },
-                {
-                  "key": "value",
-                  "value": "{{api_key}}",
-                  "type": "string"
-                },
-                {
-                  "key": "in",
-                  "value": "header",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"facets\": [\n    \"auditStatus\",\n    \"operation\",\n    \"userRole\",\n    \"entityName\"\n  ],\n  \"pageNumber\": 0,\n  \"pageSize\": 100\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/audit/v1/search",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "audit",
-                "v1",
-                "search"
-              ]
-            },
-            "description": "The aggregation buckets that power the UI filter rail."
-          }
-        },
-        {
-          "name": "[POST] Filter Audit Logs by Resulting State (auditStatus)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "var json = pm.response.json();",
-                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                  "var sr = json.result && json.result.result;",
-                  "pm.test('has totalCount', () => pm.expect(sr).to.have.property('totalCount'));",
-                  "console.log('totalCount =', sr.totalCount);"
+                  "pm.test('has totalCount', () => pm.expect(sr).to.have.property('totalCount'));"
                 ]
               }
             }
@@ -1360,11 +1067,11 @@
                 "search"
               ]
             },
-            "description": "Filter by resulting lifecycle state (UPPERCASE, matching the source system)."
+            "description": "Audit logs in a given status."
           }
         },
         {
-          "name": "[POST] Filter Audit Logs by Governance Action (operation)",
+          "name": "Filter by date range",
           "event": [
             {
               "listen": "test",
@@ -1372,78 +1079,9 @@
                 "type": "text/javascript",
                 "exec": [
                   "var json = pm.response.json();",
-                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
                   "var sr = json.result && json.result.result;",
-                  "pm.test('has totalCount', () => pm.expect(sr).to.have.property('totalCount'));",
-                  "console.log('totalCount =', sr.totalCount);"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "auth": {
-              "type": "apikey",
-              "apikey": [
-                {
-                  "key": "key",
-                  "value": "apikey",
-                  "type": "string"
-                },
-                {
-                  "key": "value",
-                  "value": "{{api_key}}",
-                  "type": "string"
-                },
-                {
-                  "key": "in",
-                  "value": "header",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"filterCriteriaMap\": {\n    \"operation\": \"APPROVE\"\n  },\n  \"pageNumber\": 0,\n  \"pageSize\": 100\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/audit/v1/search",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "audit",
-                "v1",
-                "search"
-              ]
-            },
-            "description": "All L1 review actions (APPROVE endpoint) - outcomes may be APPROVED/REJECTED/REWORK."
-          }
-        },
-        {
-          "name": "[POST] Filter Audit Logs by ISO Date Range",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "var json = pm.response.json();",
-                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                  "var sr = json.result && json.result.result;",
-                  "pm.test('has totalCount', () => pm.expect(sr).to.have.property('totalCount'));",
-                  "console.log('totalCount =', sr.totalCount);"
+                  "pm.test('has totalCount', () => pm.expect(sr).to.have.property('totalCount'));"
                 ]
               }
             }
@@ -1496,24 +1134,92 @@
                 "search"
               ]
             },
-            "description": "Time-window filter via query.range (do NOT use orderBy on createdOn - sort client-side)."
+            "description": "Audit logs within a time window."
+          }
+        },
+        {
+          "name": "Facets",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "var sr = json.result && json.result.result;",
+                  "pm.test('has totalCount', () => pm.expect(sr).to.have.property('totalCount'));",
+                  "pm.test('facets present', () => pm.expect(sr).to.have.property('facets'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"facets\": [\n    \"auditStatus\",\n    \"entityName\",\n    \"userId\"\n  ],\n  \"pageNumber\": 0,\n  \"pageSize\": 100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/audit/v1/search",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "audit",
+                "v1",
+                "search"
+              ]
+            },
+            "description": "Counts grouped by status, catalogue and user (the UI filter rail)."
           }
         }
       ]
     },
     {
-      "name": "05 - Schema Validation & Data Quality Enforcement",
-      "description": "Validates robust server-side schema enforcement when incoming audit events violate strict schema definitions.",
+      "name": "Validation",
+      "description": "Schema checks that reject malformed logs.",
       "item": [
         {
-          "name": "[POST] Validation Error - Invalid Status Casing",
+          "name": "Invalid status",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));"
+                  "pm.test('status 400', () => pm.response.to.have.status(400));"
                 ]
               }
             }
@@ -1548,7 +1254,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"entityId\": \"cropVariety-000000000777\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-100\",\n  \"userName\": \"Asha\",\n  \"userRole\": \"L0\",\n  \"operation\": \"CREATE\",\n  \"auditStatus\": \"Active\",\n  \"changeRequestId\": \"cr-9999\",\n  \"entityBeforeChanges\": {},\n  \"entityAfterChanges\": {\n    \"cropVarietyId\": \"cropVariety-000000000777\",\n    \"name\": \"rice-121\",\n    \"cropType\": \"Rice\",\n    \"maturityDays\": 140,\n    \"grainType\": \"Long\",\n    \"status\": \"PENDING\"\n  },\n  \"createdOn\": \"2026-07-24T09:00:00Z\",\n  \"updatedOn\": \"2026-07-24T09:00:00Z\"\n}",
+              "raw": "{\n  \"entityId\": \"cropVariety-000000000777\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-100\",\n  \"userName\": \"Asha\",\n  \"auditStatus\": \"Active\",\n  \"entityBeforeChanges\": \"{}\",\n  \"entityAfterChanges\": \"{\\\"cropVarietyId\\\": \\\"cropVariety-000000000777\\\", \\\"name\\\": \\\"rice-121\\\", \\\"cropType\\\": \\\"Rice\\\", \\\"maturityDays\\\": 140, \\\"grainType\\\": \\\"Long\\\", \\\"status\\\": \\\"PENDING\\\"}\",\n  \"createdOn\": \"2026-07-24T09:00:00Z\",\n  \"updatedOn\": \"2026-07-24T09:00:00Z\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1566,18 +1272,18 @@
                 "create"
               ]
             },
-            "description": "auditStatus is UPPERCASE-only now; 'Active' fails the enum -> 400."
+            "description": "A status outside the allowed set is rejected."
           }
         },
         {
-          "name": "[POST] Validation Error - Unsupported Operation Enum",
+          "name": "Missing entityId",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));"
+                  "pm.test('status 400', () => pm.response.to.have.status(400));"
                 ]
               }
             }
@@ -1612,7 +1318,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"entityId\": \"cropVariety-000000000777\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-100\",\n  \"userName\": \"Asha\",\n  \"userRole\": \"L0\",\n  \"operation\": \"RETIRE\",\n  \"auditStatus\": \"PENDING\",\n  \"changeRequestId\": \"cr-9999\",\n  \"entityBeforeChanges\": {},\n  \"entityAfterChanges\": {\n    \"cropVarietyId\": \"cropVariety-000000000777\",\n    \"name\": \"rice-121\",\n    \"cropType\": \"Rice\",\n    \"maturityDays\": 140,\n    \"grainType\": \"Long\",\n    \"status\": \"PENDING\"\n  },\n  \"createdOn\": \"2026-07-24T09:00:00Z\",\n  \"updatedOn\": \"2026-07-24T09:00:00Z\"\n}",
+              "raw": "{\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-100\",\n  \"userName\": \"Asha\",\n  \"auditStatus\": \"PENDING\",\n  \"entityBeforeChanges\": \"{}\",\n  \"entityAfterChanges\": \"{\\\"cropVarietyId\\\": \\\"cropVariety-000000000777\\\", \\\"name\\\": \\\"rice-121\\\", \\\"cropType\\\": \\\"Rice\\\", \\\"maturityDays\\\": 140, \\\"grainType\\\": \\\"Long\\\", \\\"status\\\": \\\"PENDING\\\"}\",\n  \"createdOn\": \"2026-07-24T09:00:00Z\",\n  \"updatedOn\": \"2026-07-24T09:00:00Z\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1630,18 +1336,18 @@
                 "create"
               ]
             },
-            "description": "operation 'RETIRE' is not in the enum (no such endpoint) -> 400."
+            "description": "entityId is required."
           }
         },
         {
-          "name": "[POST] Validation Error - Missing Mandatory Entity ID",
+          "name": "Missing before state",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));"
+                  "pm.test('status 400', () => pm.response.to.have.status(400));"
                 ]
               }
             }
@@ -1676,7 +1382,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-100\",\n  \"userName\": \"Asha\",\n  \"userRole\": \"L0\",\n  \"operation\": \"CREATE\",\n  \"auditStatus\": \"PENDING\",\n  \"changeRequestId\": \"cr-9999\",\n  \"entityBeforeChanges\": {},\n  \"entityAfterChanges\": {\n    \"cropVarietyId\": \"cropVariety-000000000777\",\n    \"name\": \"rice-121\",\n    \"cropType\": \"Rice\",\n    \"maturityDays\": 140,\n    \"grainType\": \"Long\",\n    \"status\": \"PENDING\"\n  },\n  \"createdOn\": \"2026-07-24T09:00:00Z\",\n  \"updatedOn\": \"2026-07-24T09:00:00Z\"\n}",
+              "raw": "{\n  \"entityId\": \"cropVariety-000000000777\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-100\",\n  \"userName\": \"Asha\",\n  \"auditStatus\": \"PENDING\",\n  \"entityAfterChanges\": \"{\\\"cropVarietyId\\\": \\\"cropVariety-000000000777\\\", \\\"name\\\": \\\"rice-121\\\", \\\"cropType\\\": \\\"Rice\\\", \\\"maturityDays\\\": 140, \\\"grainType\\\": \\\"Long\\\", \\\"status\\\": \\\"PENDING\\\"}\",\n  \"createdOn\": \"2026-07-24T09:00:00Z\",\n  \"updatedOn\": \"2026-07-24T09:00:00Z\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1694,71 +1400,7 @@
                 "create"
               ]
             },
-            "description": "Missing required entityId -> 400."
-          }
-        },
-        {
-          "name": "[POST] Validation Error - Missing Mandatory Before-Changes Object",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "auth": {
-              "type": "apikey",
-              "apikey": [
-                {
-                  "key": "key",
-                  "value": "apikey",
-                  "type": "string"
-                },
-                {
-                  "key": "value",
-                  "value": "{{api_key}}",
-                  "type": "string"
-                },
-                {
-                  "key": "in",
-                  "value": "header",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"entityId\": \"cropVariety-000000000777\",\n  \"entityName\": \"cropVariety\",\n  \"userId\": \"user-100\",\n  \"userName\": \"Asha\",\n  \"userRole\": \"L0\",\n  \"operation\": \"CREATE\",\n  \"auditStatus\": \"PENDING\",\n  \"changeRequestId\": \"cr-9999\",\n  \"entityAfterChanges\": {\n    \"cropVarietyId\": \"cropVariety-000000000777\",\n    \"name\": \"rice-121\",\n    \"cropType\": \"Rice\",\n    \"maturityDays\": 140,\n    \"grainType\": \"Long\",\n    \"status\": \"PENDING\"\n  },\n  \"createdOn\": \"2026-07-24T09:00:00Z\",\n  \"updatedOn\": \"2026-07-24T09:00:00Z\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/audit/v1/create",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "audit",
-                "v1",
-                "create"
-              ]
-            },
-            "description": "before is required (send {} on create) -> 400."
+            "description": "entityBeforeChanges is required (send \"{}\" on a create)."
           }
         }
       ]
@@ -1775,18 +1417,6 @@
     },
     {
       "key": "auditId",
-      "value": ""
-    },
-    {
-      "key": "auditIdDraft",
-      "value": ""
-    },
-    {
-      "key": "auditIdSubmit",
-      "value": ""
-    },
-    {
-      "key": "auditIdPublish",
       "value": ""
     }
   ]
