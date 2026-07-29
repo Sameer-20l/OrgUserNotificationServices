@@ -117,8 +117,11 @@ CLAUDE.md
 
 
 #===== postman collections (local only, not pushed) ====
-postman/
+#postman/
 
 
 #===== test scripts (local only, not pushed) ====
 tests/
+
+#===== documentation (local only, not pushed) ====
+AUDIT_CATALOGUE_DEMO_SCRIPT.md

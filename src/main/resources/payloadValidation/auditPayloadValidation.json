@@ -1,0 +1,77 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+        "auditId": {
+            "type": "string",
+            "prefix": "audit-",
+            "key": "Primary",
+            "keyLength": 12,
+            "description": "Server-generated primary key (audit-<12 random digits>); never sent by the client."
+        },
+        "entityId": {
+            "type": "string",
+            "description": "Primary key of the catalogue record this audit row is about (e.g. cropVariety-000000000777)."
+        },
+        "entityName": {
+            "type": "string",
+            "description": "Catalogue the record belongs to (e.g. cropType, cropVariety). Free string; catalogues grow over time."
+        },
+        "userId": {
+            "type": "string",
+            "description": "Stable id of the actor who performed this action."
+        },
+        "userName": {
+            "type": "string",
+            "description": "Display name of the actor (denormalised; derivable from userId)."
+        },
+        "userRole": {
+            "type": "string",
+            "enum": ["L0", "L1", "L2"],
+            "description": "Governance level of the actor. L0 = maker, L1 = checker, L2 = publisher/authority."
+        },
+        "operation": {
+            "type": "string",
+            "enum": ["CREATE", "DRAFT", "SUBMIT", "APPROVE", "REVIEW", "TOGGLE", "UPDATE", "DELETE"],
+            "description": "Lifecycle action performed, mapping to the source catalogue endpoints: CREATE (full create), DRAFT (partial entry), SUBMIT (promote a draft), APPROVE (L1 review), REVIEW (L2 publish), TOGGLE (activate/deactivate), UPDATE, DELETE."
+        },
+        "auditStatus": {
+            "type": "string",
+            "enum": ["DRAFT", "PENDING", "APPROVED", "REJECTED", "REWORK", "ACTIVE", "INACTIVE", "DELETED"],
+            "description": "Resulting lifecycle state recorded by this immutable row. Matches the source catalogue's status values exactly (UPPERCASE)."
+        },
+        "changeRequestId": {
+            "type": "string",
+            "description": "Optional correlation id grouping the L0/L1/L2 rows of one change-request. Populated by the emitter if available."
+        },
+        "entityBeforeChanges": {
+            "type": "object",
+            "description": "State BEFORE this action. Empty object {} for a CREATE; populated for an UPDATE."
+        },
+        "entityAfterChanges": {
+            "type": "object",
+            "description": "State AFTER this action (the resulting record or the changed fields)."
+        },
+        "createdOn": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO-8601 timestamp the action occurred (UTC 'Z' recommended). Sort/range key."
+        },
+        "updatedOn": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO-8601 timestamp; equals createdOn at write time for an immutable audit row."
+        }
+    },
+    "required": [
+        "entityId",
+        "entityName",
+        "userId",
+        "userRole",
+        "operation",
+        "auditStatus",
+        "entityBeforeChanges",
+        "entityAfterChanges",
+        "createdOn"
+    ]
+}
