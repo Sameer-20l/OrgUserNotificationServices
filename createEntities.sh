@@ -3,6 +3,7 @@ set -euo pipefail
 
 entities=(
   "org"
+  "audit"
 )
 
 for entity in "${entities[@]}"; do

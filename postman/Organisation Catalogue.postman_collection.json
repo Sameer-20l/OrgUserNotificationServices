@@ -1,0 +1,1801 @@
+{
+  "info": {
+    "_postman_id": "0a5c1e00-0000-4000-8000-org000000001",
+    "name": "Organisation Catalogue - CRUD Tests",
+    "description": "Test suite for the Organisation Catalogue Service (/org/v1/*), using realistic Indian agricultural organisations as sample data.\n\nRun folders top-to-bottom (Create -> Read -> Search -> Delete -> Import): Create requests save generated orgIds into collection variables consumed by Read/Delete. Set {{baseUrl}} if the app is not on http://localhost:8080.\n\nNote: read/delete always return HTTP 200 ('not found' is reported in the body as message='Invalid Id'); create validation failures return HTTP 400.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 - Health & Preflight",
+      "item": [
+        {
+          "name": "Health - app is up",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('status UP', () => pm.expect(pm.response.json().status).to.eql('UP'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "actuator",
+                "health"
+              ]
+            },
+            "description": "Actuator health check - confirm the app is running on {{baseUrl}} before the suite.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 - Create (production-like data)",
+      "item": [
+        {
+          "name": "Create - Karnataka Dept of Horticulture",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('message = successfully created', () => pm.expect(json.message).to.eql('successfully created'));",
+                  "pm.test('orgId returned (org- prefix)', () => pm.expect(json.result.orgId).to.match(/^org-\\d+$/));",
+                  "pm.test('echoes back the payload', () => pm.expect(JSON.stringify(json.result)).to.include(\"Department of Horticulture, Government of Karnataka\"));",
+                  "pm.collectionVariables.set('orgId', json.result.orgId);",
+                  "pm.collectionVariables.set('orgIdHorticulture', json.result.orgId);",
+                  "console.log('created', json.result.orgId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Department of Horticulture, Government of Karnataka\",\n  \"type\": \"Government Department\",\n  \"location\": \"locmap-KA-BLR-560004\",\n  \"department\": \"Horticulture\",\n  \"address\": \"Lalbagh Botanical Garden, Mavalli, Bengaluru, Karnataka 560004\",\n  \"contactNumber\": \"+91-80-26578184\",\n  \"contactEmail\": \"info@horticulture.kar.nic.in\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "create"
+              ]
+            },
+            "description": "Creates an organisation record. Saves the generated orgId to: orgId, orgIdHorticulture.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create - Kerala Soil Conservation Dept",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('message = successfully created', () => pm.expect(json.message).to.eql('successfully created'));",
+                  "pm.test('orgId returned (org- prefix)', () => pm.expect(json.result.orgId).to.match(/^org-\\d+$/));",
+                  "pm.test('echoes back the payload', () => pm.expect(JSON.stringify(json.result)).to.include(\"Soil Survey & Soil Conservation\"));",
+                  "pm.collectionVariables.set('orgId', json.result.orgId);",
+                  "pm.collectionVariables.set('orgIdSoil', json.result.orgId);",
+                  "console.log('created', json.result.orgId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Department of Soil Survey & Soil Conservation, Government of Kerala\",\n  \"type\": \"Government Department\",\n  \"location\": \"locmap-KL-TVM-695033\",\n  \"department\": \"Soil Science\",\n  \"address\": \"Vikas Bhavan, Thiruvananthapuram, Kerala 695033\",\n  \"contactNumber\": \"+91-471-2304594\",\n  \"contactEmail\": \"director@soilconservation.kerala.gov.in\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "create"
+              ]
+            },
+            "description": "Creates an organisation record. Saves the generated orgId to: orgId, orgIdSoil.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create - Punjab Agricultural University",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('message = successfully created', () => pm.expect(json.message).to.eql('successfully created'));",
+                  "pm.test('orgId returned (org- prefix)', () => pm.expect(json.result.orgId).to.match(/^org-\\d+$/));",
+                  "pm.test('echoes back the payload', () => pm.expect(JSON.stringify(json.result)).to.include(\"Punjab Agricultural University\"));",
+                  "pm.collectionVariables.set('orgId', json.result.orgId);",
+                  "pm.collectionVariables.set('orgIdPlantPathology', json.result.orgId);",
+                  "console.log('created', json.result.orgId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Punjab Agricultural University\",\n  \"type\": \"University\",\n  \"location\": \"locmap-PB-LDH-141004\",\n  \"department\": \"Plant Pathology\",\n  \"address\": \"Ferozepur Road, Ludhiana, Punjab 141004\",\n  \"contactNumber\": \"+91-161-2401960\",\n  \"contactEmail\": \"registrar@pau.edu\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "create"
+              ]
+            },
+            "description": "Creates an organisation record. Saves the generated orgId to: orgId, orgIdPlantPathology.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create - ICAR-IIHR (Research Institute)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('message = successfully created', () => pm.expect(json.message).to.eql('successfully created'));",
+                  "pm.test('orgId returned (org- prefix)', () => pm.expect(json.result.orgId).to.match(/^org-\\d+$/));",
+                  "pm.test('echoes back the payload', () => pm.expect(JSON.stringify(json.result)).to.include(\"Indian Institute of Horticultural Research\"));",
+                  "pm.collectionVariables.set('orgId', json.result.orgId);",
+                  "pm.collectionVariables.set('orgIdResearch', json.result.orgId);",
+                  "console.log('created', json.result.orgId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"ICAR - Indian Institute of Horticultural Research\",\n  \"type\": \"Research Institute\",\n  \"location\": \"locmap-KA-BLR-560089\",\n  \"department\": \"Horticulture\",\n  \"address\": \"Hessaraghatta Lake Post, Bengaluru, Karnataka 560089\",\n  \"contactNumber\": \"+91-80-23086100\",\n  \"contactEmail\": \"director.iihr@icar.gov.in\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "create"
+              ]
+            },
+            "description": "Creates an organisation record. Saves the generated orgId to: orgId, orgIdResearch.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create - ICAR-IARI New Delhi",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('message = successfully created', () => pm.expect(json.message).to.eql('successfully created'));",
+                  "pm.test('orgId returned (org- prefix)', () => pm.expect(json.result.orgId).to.match(/^org-\\d+$/));",
+                  "pm.test('echoes back the payload', () => pm.expect(JSON.stringify(json.result)).to.include(\"Indian Agricultural Research Institute\"));",
+                  "pm.collectionVariables.set('orgId', json.result.orgId);",
+                  "console.log('created', json.result.orgId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"ICAR - Indian Agricultural Research Institute\",\n  \"type\": \"Research Institute\",\n  \"location\": \"locmap-DL-NDL-110012\",\n  \"department\": \"Agronomy\",\n  \"address\": \"Pusa Campus, New Delhi 110012\",\n  \"contactNumber\": \"+91-11-25843375\",\n  \"contactEmail\": \"director@iari.res.in\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "create"
+              ]
+            },
+            "description": "Creates an organisation record. Saves the generated orgId to: orgId.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create - UAS Bangalore",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('message = successfully created', () => pm.expect(json.message).to.eql('successfully created'));",
+                  "pm.test('orgId returned (org- prefix)', () => pm.expect(json.result.orgId).to.match(/^org-\\d+$/));",
+                  "pm.test('echoes back the payload', () => pm.expect(JSON.stringify(json.result)).to.include(\"University of Agricultural Sciences, Bangalore\"));",
+                  "pm.collectionVariables.set('orgId', json.result.orgId);",
+                  "pm.collectionVariables.set('orgIdUniversity', json.result.orgId);",
+                  "console.log('created', json.result.orgId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"University of Agricultural Sciences, Bangalore\",\n  \"type\": \"University\",\n  \"location\": \"locmap-KA-BLR-560065\",\n  \"department\": \"Entomology\",\n  \"address\": \"GKVK Campus, Bellary Road, Bengaluru, Karnataka 560065\",\n  \"contactNumber\": \"+91-80-23330153\",\n  \"contactEmail\": \"registrar@uasbangalore.edu.in\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "create"
+              ]
+            },
+            "description": "Creates an organisation record. Saves the generated orgId to: orgId, orgIdUniversity.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create - Krishi Vigyan Kendra, Kolar",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('message = successfully created', () => pm.expect(json.message).to.eql('successfully created'));",
+                  "pm.test('orgId returned (org- prefix)', () => pm.expect(json.result.orgId).to.match(/^org-\\d+$/));",
+                  "pm.test('echoes back the payload', () => pm.expect(JSON.stringify(json.result)).to.include(\"Krishi Vigyan Kendra, Kolar\"));",
+                  "pm.collectionVariables.set('orgId', json.result.orgId);",
+                  "console.log('created', json.result.orgId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Krishi Vigyan Kendra, Kolar\",\n  \"type\": \"Krishi Vigyan Kendra\",\n  \"location\": \"locmap-KA-KLR-563103\",\n  \"department\": \"Agricultural Extension\",\n  \"address\": \"Tamaka, Kolar, Karnataka 563103\",\n  \"contactNumber\": \"+91-8152-243210\",\n  \"contactEmail\": \"kvkkolar@icar.gov.in\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "create"
+              ]
+            },
+            "description": "Creates an organisation record. Saves the generated orgId to: orgId.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create - Tamil Nadu Agricultural University",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('message = successfully created', () => pm.expect(json.message).to.eql('successfully created'));",
+                  "pm.test('orgId returned (org- prefix)', () => pm.expect(json.result.orgId).to.match(/^org-\\d+$/));",
+                  "pm.test('echoes back the payload', () => pm.expect(JSON.stringify(json.result)).to.include(\"Tamil Nadu Agricultural University\"));",
+                  "pm.collectionVariables.set('orgId', json.result.orgId);",
+                  "console.log('created', json.result.orgId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Tamil Nadu Agricultural University\",\n  \"type\": \"University\",\n  \"location\": \"locmap-TN-CBE-641003\",\n  \"department\": \"Agricultural Engineering\",\n  \"address\": \"Lawley Road, Coimbatore, Tamil Nadu 641003\",\n  \"contactNumber\": \"+91-422-6611200\",\n  \"contactEmail\": \"registrar@tnau.ac.in\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "create"
+              ]
+            },
+            "description": "Creates an organisation record. Saves the generated orgId to: orgId.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create X - missing required 'name'",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400 (validation failure)', () => pm.response.to.have.status(400));",
+                  "pm.test('error mentions validation / name', () => pm.expect(pm.response.text().toLowerCase()).to.satisfy(t => t.includes('valid') || t.includes('name')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"Government Department\",\n  \"location\": \"locmap-KA-BLR-560001\",\n  \"department\": \"Horticulture\",\n  \"address\": \"Bengaluru, Karnataka\",\n  \"contactNumber\": \"+91-80-20000000\",\n  \"contactEmail\": \"noname@example.gov.in\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "create"
+              ]
+            },
+            "description": "Negative: 'name' is required by orgPayloadValidation.json -> expect HTTP 400.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create X - missing required 'type'",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400 (validation failure)', () => pm.response.to.have.status(400));",
+                  "pm.test('error mentions validation / type', () => pm.expect(pm.response.text().toLowerCase()).to.satisfy(t => t.includes('valid') || t.includes('type')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Organisation Without A Type\",\n  \"location\": \"locmap-KA-BLR-560001\",\n  \"department\": \"Horticulture\",\n  \"address\": \"Bengaluru, Karnataka\",\n  \"contactNumber\": \"+91-80-20000001\",\n  \"contactEmail\": \"notype@example.gov.in\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "create"
+              ]
+            },
+            "description": "Negative: 'type' is required -> expect HTTP 400.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Read",
+      "item": [
+        {
+          "name": "Read - Karnataka Horticulture (by saved id)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('message = successfully read', () => pm.expect(json.message).to.eql('successfully read'));",
+                  "pm.test('payload returned', () => pm.expect(JSON.stringify(json.result)).to.include('Horticulture'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/read/{{orgIdHorticulture}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "read",
+                "{{orgIdHorticulture}}"
+              ]
+            },
+            "description": "Reads the Karnataka Horticulture org created earlier (cache-first, falls back to Postgres).",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Read - last created (by {{orgId}})",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('message = successfully read', () => pm.expect(pm.response.json().message).to.eql('successfully read'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/read/{{orgId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "read",
+                "{{orgId}}"
+              ]
+            },
+            "description": "Reads whichever org was created most recently.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Read X - non-existent id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('HTTP 200 (read always returns 200)', () => pm.response.to.have.status(200));",
+                  "pm.test('body signals not found', () => pm.expect(json.message).to.eql('Invalid Id'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/read/org-000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "read",
+                "org-000000000000"
+              ]
+            },
+            "description": "Negative: unknown id -> HTTP 200 with body message 'Invalid Id'.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Search",
+      "item": [
+        {
+          "name": "Search - match all",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "var sr = json.result && json.result.result;",
+                  "pm.test('has totalCount', () => pm.expect(sr).to.have.property('totalCount'));",
+                  "console.log('totalCount =', sr.totalCount);",
+                  "pm.test('returns at least 1 doc', () => pm.expect(sr.totalCount).to.be.above(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pageNumber\": 0,\n  \"pageSize\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/search",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "search"
+              ]
+            },
+            "description": "Match-all across org_index.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search - filter department = Horticulture",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "var sr = json.result && json.result.result;",
+                  "pm.test('has totalCount', () => pm.expect(sr).to.have.property('totalCount'));",
+                  "console.log('totalCount =', sr.totalCount);",
+                  "(sr.data||[]).forEach(function(d){ pm.test('dept=Horticulture', () => pm.expect(d.department).to.eql('Horticulture')); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"filterCriteriaMap\": {\n    \"department\": \"Horticulture\"\n  },\n  \"pageNumber\": 0,\n  \"pageSize\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/search",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "search"
+              ]
+            },
+            "description": "Exact-match filter (filterCriteriaMap appends .keyword automatically).",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search - filter type = Research Institute",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "var sr = json.result && json.result.result;",
+                  "pm.test('has totalCount', () => pm.expect(sr).to.have.property('totalCount'));",
+                  "console.log('totalCount =', sr.totalCount);",
+                  "(sr.data||[]).forEach(function(d){ pm.test('type=Research Institute', () => pm.expect(d.type).to.eql('Research Institute')); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"filterCriteriaMap\": {\n    \"type\": \"Research Institute\"\n  },\n  \"pageNumber\": 0,\n  \"pageSize\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/search",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "search"
+              ]
+            },
+            "description": "Filter by organisation type.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search - filter type + department",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "var sr = json.result && json.result.result;",
+                  "pm.test('has totalCount', () => pm.expect(sr).to.have.property('totalCount'));",
+                  "console.log('totalCount =', sr.totalCount);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"filterCriteriaMap\": {\n    \"type\": \"Government Department\",\n    \"department\": \"Soil Science\"\n  },\n  \"pageNumber\": 0,\n  \"pageSize\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/search",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "search"
+              ]
+            },
+            "description": "Multiple filters combined (AND).",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search - facets (department, type)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "var sr = json.result && json.result.result;",
+                  "pm.test('has totalCount', () => pm.expect(sr).to.have.property('totalCount'));",
+                  "console.log('totalCount =', sr.totalCount);",
+                  "pm.test('facets present', () => pm.expect(sr).to.have.property('facets'));",
+                  "console.log('facets =', JSON.stringify(sr.facets));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"facets\": [\n    \"department\",\n    \"type\"\n  ],\n  \"pageNumber\": 0,\n  \"pageSize\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/search",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "search"
+              ]
+            },
+            "description": "Terms-aggregation facets over department and type.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search - sorted by name asc",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "var sr = json.result && json.result.result;",
+                  "pm.test('has totalCount', () => pm.expect(sr).to.have.property('totalCount'));",
+                  "console.log('totalCount =', sr.totalCount);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderBy\": \"name\",\n  \"orderDirection\": \"asc\",\n  \"pageNumber\": 0,\n  \"pageSize\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/search",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "search"
+              ]
+            },
+            "description": "Sort by name (uses name.keyword).",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search - pagination (pageSize 3)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "var sr = json.result && json.result.result;",
+                  "pm.test('has totalCount', () => pm.expect(sr).to.have.property('totalCount'));",
+                  "console.log('totalCount =', sr.totalCount);",
+                  "pm.test('page has at most 3 docs', () => pm.expect((sr.data||[]).length).to.be.at.most(3));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pageNumber\": 0,\n  \"pageSize\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/search",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "search"
+              ]
+            },
+            "description": "Pagination: first page, 3 per page.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search - query match on name = 'University'",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "var sr = json.result && json.result.result;",
+                  "pm.test('has totalCount', () => pm.expect(sr).to.have.property('totalCount'));",
+                  "console.log('totalCount =', sr.totalCount);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": {\n    \"match\": {\n      \"name\": \"University\"\n    }\n  },\n  \"pageNumber\": 0,\n  \"pageSize\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/search",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "search"
+              ]
+            },
+            "description": "Full-text match query on the 'name' field (matches the universities).",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Delete (soft)",
+      "item": [
+        {
+          "name": "Delete - Punjab Agri University (soft delete)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('message = successfully deleted', () => pm.expect(json.message).to.eql('successfully deleted'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/delete/{{orgIdPlantPathology}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "delete",
+                "{{orgIdPlantPathology}}"
+              ]
+            },
+            "description": "Soft delete: status=INACTIVE in Postgres, removes ES doc + evicts Redis.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Read after delete - still in Postgres (soft)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('record still readable (soft delete keeps the row)', () => pm.expect(pm.response.json().message).to.eql('successfully read'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/read/{{orgIdPlantPathology}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "read",
+                "{{orgIdPlantPathology}}"
+              ]
+            },
+            "description": "Soft delete keeps the Postgres row, so read still returns it.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete X - already deleted",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('message says already deleted', () => pm.expect(json.message.toLowerCase()).to.include('already deleted'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/delete/{{orgIdPlantPathology}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "delete",
+                "{{orgIdPlantPathology}}"
+              ]
+            },
+            "description": "Deleting an already-soft-deleted record returns 'Record is already deleted'.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete X - non-existent id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('HTTP 200 (delete always returns 200)', () => pm.response.to.have.status(200));",
+                  "pm.test('body signals not found', () => pm.expect(json.message).to.eql('Invalid Id'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/delete/org-000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "delete",
+                "org-000000000000"
+              ]
+            },
+            "description": "Negative: unknown id -> HTTP 200 with body message 'Invalid Id'.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Bulk Import",
+      "item": [
+        {
+          "name": "Bulk Import - CSV",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "console.log('import result =', JSON.stringify(json.result));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/Users/ashwinrajan/Developer/COSS/organisation-catalogue/postman/sample_org_import.csv"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/org/v1/import",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "org",
+                "v1",
+                "import"
+              ]
+            },
+            "description": "Bulk import organisations from CSV/XLSX (<=5MB). The 'file' field points at postman/sample_org_import.csv (camelCase headers matching the schema). Re-select the file in Postman if the path differs on your machine.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "apikey",
+                  "type": "string"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key}}",
+                  "type": "string"
+                },
+                {
+                  "key": "in",
+                  "value": "header",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "api_key",
+      "value": ""
+    },
+    {
+      "key": "orgId",
+      "value": ""
+    },
+    {
+      "key": "orgIdHorticulture",
+      "value": ""
+    },
+    {
+      "key": "orgIdSoil",
+      "value": ""
+    },
+    {
+      "key": "orgIdPlantPathology",
+      "value": ""
+    },
+    {
+      "key": "orgIdResearch",
+      "value": ""
+    },
+    {
+      "key": "orgIdUniversity",
+      "value": ""
+    }
+  ]
+}
