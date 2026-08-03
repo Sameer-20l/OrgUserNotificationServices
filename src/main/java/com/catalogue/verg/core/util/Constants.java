@@ -72,12 +72,6 @@ public class Constants{
     public static final String ORG_ID_RQST = "orgId";
     public static final String ORG_INDEX_NAME = "org_index";
 
-    
-    // Audit Specific Constants
-    public static final String AUDIT_VALIDATION_FILE_JSON = "/payloadValidation/auditPayloadValidation.json";
-    public static final String AUDIT_ID_RQST = "auditId";
-    public static final String AUDIT_INDEX_NAME = "audit_index";
-
         private Constants() {
     }
 }

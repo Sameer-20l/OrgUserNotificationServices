@@ -28,8 +28,7 @@ Each record is stored schemalessly: an incoming JSON document is validated again
 
 ## Supported Catalogues
 
-- **Organisation** (`org`) — organisations and their departments.
-- **Audit** (`audit`) — an immutable, append-only audit trail of changes made across all registries; see [Audit Catalogue](#audit-catalogue).
+- **Organisation** (`org`)
 
 > More catalogues can be onboarded with the metaprogramming tool — see [Adding a Catalogue](#adding-a-catalogue).
 
@@ -123,16 +122,6 @@ curl -s -X POST http://localhost:8080/org/v1/create \
   }'
 ```
 
-## Audit Catalogue
-
-The `audit` catalogue records an **immutable, append-only audit trail** of changes made across every registry, following the maker → checker → publisher governance flow (`DRAFT` → `PENDING` → `APPROVED` → `ACTIVE`, plus `REWORK`, `REJECTED`, `INACTIVE` and soft-`DELETED`). A single `audit` catalogue serves all registries.
-
-- Same API shape as any catalogue: `POST /audit/v1/create`, `POST /audit/v1/search`, `GET /audit/v1/read/{id}`.
-- Each log row captures: `entityId` + `entityName` (which record and catalogue), `userId` / `userName` (who acted), `auditStatus` (the resulting state), `entityBeforeChanges` / `entityAfterChanges` (stringified-JSON snapshots, indexed in Elasticsearch), and producer-stamped `createdOn` / `updatedOn`.
-- PostgreSQL is the source of truth; the searchable view — lists, filters, facets and the before/after snapshots — is served from Elasticsearch.
-
-See **[AUDIT_CATALOGUE_WALKTHROUGH.md](AUDIT_CATALOGUE_WALKTHROUGH.md)** for the full lifecycle narration and demo runbook. A ready-to-run Postman collection is at `postman/Audit Catalogue.postman_collection.json`.
-
 ## Project Structure
 
 ```
@@ -146,16 +135,11 @@ src/main/java/com/catalogue/verg/
 │   ├── logger/           # Logging helper
 │   ├── service/          # Generic bulk-import service
 │   └── util/             # Constants, PayloadValidation, PrimaryKeyUtil, VergProperties, ...
-├── org/                  # Organisation catalogue (generated via main.py)
-│   ├── controller/       # OrgController — REST endpoints
-│   ├── entity/           # OrgEntity — JPA @Entity (jsonb data column)
-│   ├── repository/       # OrgRepository
-│   └── service/          # OrgService + impl/OrgServiceImpl
-└── audit/                # Audit catalogue (generated via main.py) — append-only audit trail
-    ├── controller/       # AuditController — REST endpoints
-    ├── entity/           # AuditEntity — JPA @Entity (jsonb data column)
-    ├── repository/       # AuditRepository
-    └── service/          # AuditService + impl/AuditServiceImpl
+└── org/                  # Organisation catalogue (generated via main.py)
+    ├── controller/       # OrgController — REST endpoints
+    ├── entity/           # OrgEntity — JPA @Entity (jsonb data column)
+    ├── repository/       # OrgRepository
+    └── service/          # OrgService + impl/OrgServiceImpl
 
 src/main/resources/
 ├── application.properties   # DB / ES / Redis config + per-catalogue registration
