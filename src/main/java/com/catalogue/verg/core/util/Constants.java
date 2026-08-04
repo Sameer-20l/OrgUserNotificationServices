@@ -7,12 +7,29 @@ public class Constants{
     public static final String IN_ACTIVE = "INACTIVE";
     public static final String SUCCESSFULLY_CREATED = "successfully created";
     public static final String SUCCESSFULLY_DELETED = "successfully deleted";
+    public static final String SUCCESSFULLY_UPDATED = "successfully updated";
     public static final String RESULT = "result";
     public static final String FAILED_CONST = "FAILED";
     public static final String ID = "id";
 
     public static final String ERROR = "ERROR";
     public static final String REDIS_KEY_PREFIX = "verg_cache_";
+
+    // Lifecycle / approval workflow constants
+    // Note: ACTIVE (published/live) is reused; IN_ACTIVE now means deactivated (toggle);
+    // DELETED (below) is the soft-delete state set by delete().
+    public static final String DRAFT = "DRAFT";
+    public static final String PENDING = "PENDING";
+    public static final String APPROVED = "APPROVED";
+    public static final String REWORK = "REWORK";
+    public static final String REJECTED = "REJECTED";
+    public static final String DELETED = "DELETED";
+    public static final String PUBLISHED = "PUBLISHED"; // accepted alias for ACTIVE on the review endpoint
+    public static final String STATUS = "status";
+    public static final String CREATED_ON = "createdOn";
+    public static final String UPDATED_ON = "updatedOn";
+    public static final String INVALID_STATUS = "Invalid target status";
+    public static final String INVALID_STATUS_TRANSITION = "Record is not in a state that allows this action";
 
     //ES Specific Constants
     public static final String INDEX_TYPE = "_doc";
