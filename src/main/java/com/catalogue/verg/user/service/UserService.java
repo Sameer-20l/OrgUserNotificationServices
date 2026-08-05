@@ -1,4 +1,4 @@
-package com.catalogue.verg.org.service;
+package com.catalogue.verg.user.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.catalogue.verg.core.dto.CustomResponse;
@@ -7,30 +7,30 @@ import com.catalogue.verg.core.elasticsearch.dto.SearchCriteria;
 import org.springframework.web.multipart.MultipartFile;
 
 
-public interface OrgService {
+public interface UserService {
 
-    CustomResponse createOrg(JsonNode orgEntity);
+    CustomResponse createUser(JsonNode userEntity);
 
-    CustomResponse updateOrg(String id, JsonNode orgEntity);
+    CustomResponse updateUser(String id, JsonNode userEntity);
 
     // Lifecycle: create an incomplete DRAFT (relaxed validation)
-    CustomResponse draftOrg(JsonNode orgEntity);
+    CustomResponse draftUser(JsonNode userEntity);
 
     // Lifecycle: (re-)submit a DRAFT/REWORK record for approval -> PENDING (full validation)
-    CustomResponse addOrg(String id, JsonNode orgEntity);
+    CustomResponse addUser(String id, JsonNode userEntity);
 
     // Lifecycle: PENDING -> APPROVED | REJECTED | REWORK
-    CustomResponse approveOrg(LifecycleRequest request);
+    CustomResponse approveUser(LifecycleRequest request);
 
     // Lifecycle: APPROVED -> ACTIVE(published) | REJECTED | REWORK | PENDING
-    CustomResponse reviewOrg(LifecycleRequest request);
+    CustomResponse reviewUser(LifecycleRequest request);
 
     // Toggle a live record between ACTIVE and INACTIVE (rejects any other status)
     CustomResponse toggleStatus(String id);
 
-    CustomResponse searchOrg(SearchCriteria searchCriteria);
+    CustomResponse searchUser(SearchCriteria searchCriteria);
 
-    CustomResponse assignOrg(JsonNode orgEntity, String token);
+    CustomResponse assignUser(JsonNode userEntity, String token);
 
     CustomResponse read(String id);
 

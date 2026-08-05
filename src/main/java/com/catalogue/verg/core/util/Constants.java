@@ -89,6 +89,12 @@ public class Constants{
     public static final String ORG_ID_RQST = "orgId";
     public static final String ORG_INDEX_NAME = "org_index";
 
+    
+    // User Specific Constants
+    public static final String USER_VALIDATION_FILE_JSON = "/payloadValidation/userPayloadValidation.json";
+    public static final String USER_ID_RQST = "userId";
+    public static final String USER_INDEX_NAME = "user_index";
+
         private Constants() {
     }
 }

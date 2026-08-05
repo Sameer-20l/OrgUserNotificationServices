@@ -23,4 +23,7 @@ public class VergProperties {
     
         @Value("${elastic.required.field.org.json.path}")
         private String elasticOrgJsonPath;
+    
+        @Value("${elastic.required.field.user.json.path}")
+        private String elasticUserJsonPath;
     }
