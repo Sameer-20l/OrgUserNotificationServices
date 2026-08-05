@@ -155,7 +155,7 @@ class CreateRegistry:
             "$schema": "http://json-schema.org/draft-07/schema#",
             "type": "object",
             "properties": {
-                f"{self.regular} Id": {
+                f"{self.camel}Id": {
                     "type": "string",
                     "prefix": f"{self.lower}-",
                     "key": "Primary",
@@ -163,7 +163,7 @@ class CreateRegistry:
                     "description": f"description about {self.camel}Id"
                 }
             },
-            "required": [f"{self.regular} Id"]
+            "required": [f"{self.camel}Id"]
         }
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         with open(output_path, "w") as f:
@@ -176,7 +176,10 @@ class CreateRegistry:
             log_skipped(f"{rel_path(output_path)} already exists.")
             return
         es_required_fields = {
-            f"{self.regular} Id": {"type": "keyword"}
+            f"{self.camel}Id": {"type": "keyword"},
+            "status": {"type": "keyword"},
+            "createdOn": {"type": "date"},
+            "updatedOn": {"type": "date"}
         }
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         with open(output_path, "w") as f:
@@ -201,7 +204,7 @@ class CreateRegistry:
     // {self.pascal} Specific Constants
     public static final String {self.upper}_VALIDATION_FILE_JSON = "/payloadValidation/{self.camel}PayloadValidation.json";
     public static final String {self.upper}_ID_RQST = "{self.camel}Id";
-    public static final String {self.upper}_INDEX_NAME = "{self.camel}_index";
+    public static final String {self.upper}_INDEX_NAME = "{self.lower}_index";
 
     """
         updated_content = content.replace(insertion_point, new_constants + insertion_point)

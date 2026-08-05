@@ -1,24 +1,33 @@
 {
-    "name": {
+    "firstName": {
         "type": "keyword"
     },
-    "type": {
+    "lastName": {
         "type": "keyword"
     },
-    "location": {
+    "email": {
         "type": "keyword"
     },
-    "department": {
+    "phoneNumber": {
         "type": "keyword"
     },
-    "address": {
+    "orgId": {
         "type": "keyword"
     },
-    "contactNumber": {
+    "entityType": {
         "type": "keyword"
     },
-    "contactEmail": {
+    "createdBy": {
         "type": "keyword"
+    },
+    "updatedBy": {
+        "type": "keyword"
+    },
+    "passwordExpiresOn": {
+        "type": "date"
+    },
+    "pinExpiresOn": {
+        "type": "date"
     },
     "status": {
         "type": "keyword"

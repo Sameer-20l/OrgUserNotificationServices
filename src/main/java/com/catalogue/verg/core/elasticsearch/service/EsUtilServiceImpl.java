@@ -179,7 +179,14 @@ public class EsUtilServiceImpl implements ESUtilService {
         SearchResponse<Map> response = elasticsearchClient.search(searchBuilder.build(), Map.class);
 
         List<Map<String, Object>> results = response.hits().hits().stream()
-                .map(hit -> (Map<String, Object>) hit.source())
+                .map(hit -> {
+                    Map<String, Object> source = hit.source();
+                    Map<String, Object> record =
+                            source != null ? new LinkedHashMap<>(source) : new LinkedHashMap<>();
+                    // include the record id (ES _id = primary key) alongside the indexed fields
+                    record.put(Constants.ID, hit.id());
+                    return record;
+                })
                 .collect(Collectors.toList());
 
         SearchResult searchResult = new SearchResult();

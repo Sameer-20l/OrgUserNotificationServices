@@ -1,4 +1,4 @@
-package com.catalogue.verg.audit.entity;
+package com.catalogue.verg.user.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -19,11 +19,11 @@ import org.hibernate.annotations.Type;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "audit")
+@Table(name = "user")
 @Entity
-public class AuditEntity {
+public class UserEntity {
     @Id
-    private String auditId;
+    private String userId;
 
     @Type(JsonBinaryType.class)
     @Column(columnDefinition = "jsonb")

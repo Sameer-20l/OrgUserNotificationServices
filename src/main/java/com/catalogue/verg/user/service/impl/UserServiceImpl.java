@@ -1,4 +1,4 @@
-package com.catalogue.verg.org.service.impl;
+package com.catalogue.verg.user.service.impl;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
@@ -22,9 +22,9 @@ import com.catalogue.verg.core.util.PayloadValidation;
 import com.catalogue.verg.core.util.VergProperties;
 import com.catalogue.verg.core.service.ImportService;
 import com.catalogue.verg.core.util.PrimaryKeyUtil;
-import com.catalogue.verg.org.entity.OrgEntity;
-import com.catalogue.verg.org.repository.OrgRepository;
-import com.catalogue.verg.org.service.OrgService;
+import com.catalogue.verg.user.entity.UserEntity;
+import com.catalogue.verg.user.repository.UserRepository;
+import com.catalogue.verg.user.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -47,7 +47,7 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 @Slf4j
-public class OrgServiceImpl implements OrgService {
+public class UserServiceImpl implements UserService {
     @Autowired
     private PayloadValidation payloadValidation;
 
@@ -55,7 +55,7 @@ public class OrgServiceImpl implements OrgService {
     private PrimaryKeyUtil primaryKeyUtil;
 
     @Autowired
-    private OrgRepository orgRepository;
+    private UserRepository userRepository;
 
     @Autowired
     private ESUtilService esUtilService;
@@ -75,44 +75,44 @@ public class OrgServiceImpl implements OrgService {
     @Autowired
     private ImportService importService;
 
-    private Logger logger = LoggerFactory.getLogger(OrgServiceImpl.class);
+    private Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
 
     @Value("${spring.redis.cacheTtl}")
     private long searchResultRedisTtl;
 
     @Override
-    public CustomResponse createOrg(JsonNode orgEntity) {
-        log.info("OrgServiceImpl::createOrg:entered the method: " + orgEntity);
+    public CustomResponse createUser(JsonNode userEntity) {
+        log.info("UserServiceImpl::createUser:entered the method: " + userEntity);
         CustomResponse response = new CustomResponse();
-        payloadValidation.validatePayload(Constants.ORG_VALIDATION_FILE_JSON, orgEntity);
+        payloadValidation.validatePayload(Constants.USER_VALIDATION_FILE_JSON, userEntity);
 
-        log.debug("OrgServiceImpl::createOrg:validated the payload");
+        log.debug("UserServiceImpl::createUser:validated the payload");
         try {
-            log.info("OrgServiceImpl::createOrg:creating org");
-            OrgEntity orgEntity1 = new OrgEntity();
+            log.info("UserServiceImpl::createUser:creating user");
+            UserEntity userEntity1 = new UserEntity();
             // Generate Primary Key
-            String primaryID = primaryKeyUtil.generateKey(Constants.ORG_VALIDATION_FILE_JSON);
-            orgEntity1.setOrgId(primaryID);
+            String primaryID = primaryKeyUtil.generateKey(Constants.USER_VALIDATION_FILE_JSON);
+            userEntity1.setUserId(primaryID);
             // Create Parameters like createdDate / updateDate / Data and Status
             Timestamp currentTime = new Timestamp(System.currentTimeMillis());
-            orgEntity1.setCreatedOn(currentTime);
-            orgEntity1.setUpdatedOn(currentTime);
-            orgEntity1.setStatus(Constants.PENDING);
-            orgEntity1.setData(orgEntity);
+            userEntity1.setCreatedOn(currentTime);
+            userEntity1.setUpdatedOn(currentTime);
+            userEntity1.setStatus(Constants.PENDING);
+            userEntity1.setData(userEntity);
 
-            orgRepository.save(orgEntity1);
+            userRepository.save(userEntity1);
 
-            log.info("OrgServiceImpl::createOrg::persisted org in postgres");
-            ObjectNode jsonNode = buildDocument(orgEntity, Constants.PENDING, currentTime, currentTime);
+            log.info("UserServiceImpl::createUser::persisted user in postgres");
+            ObjectNode jsonNode = buildDocument(userEntity, Constants.PENDING, currentTime, currentTime);
             Map<String, Object> map = objectMapper.convertValue(jsonNode, Map.class);
-            esUtilService.addDocument(Constants.ORG_INDEX_NAME, Constants.INDEX_TYPE,
-                    String.valueOf(primaryID), map, vergProperties.getElasticOrgJsonPath());
+            esUtilService.addDocument(Constants.USER_INDEX_NAME, Constants.INDEX_TYPE,
+                    String.valueOf(primaryID), map, vergProperties.getElasticUserJsonPath());
             cacheService.putCache(primaryID, jsonNode);
             response.setMessage(Constants.SUCCESSFULLY_CREATED);
-            map.put(Constants.ORG_ID_RQST, primaryID);
+            map.put(Constants.USER_ID_RQST, primaryID);
             response.setResult(map);
             response.setResponseCode(HttpStatus.OK);
-            log.info("OrgServiceImpl::createOrg::persisted org in OAS");
+            log.info("UserServiceImpl::createUser::persisted user in OAS");
             return response;
 
         } catch (Exception e) {
@@ -122,13 +122,13 @@ public class OrgServiceImpl implements OrgService {
     }
 
     @Override
-    public CustomResponse searchOrg(SearchCriteria searchCriteria) {
-        log.info("OrgServiceImpl::searchOrg");
+    public CustomResponse searchUser(SearchCriteria searchCriteria) {
+        log.info("UserServiceImpl::searchUser");
         CustomResponse response = new CustomResponse();
         SearchResult searchResult = redisTemplate.opsForValue()
                 .get(generateRedisJwtTokenKey(searchCriteria));
         if (searchResult != null) {
-            log.info("OrgServiceImpl::searchOrg: org search result fetched from redis");
+            log.info("UserServiceImpl::searchUser: user search result fetched from redis");
             response.getResult().put(Constants.RESULT, searchResult);
             createSuccessResponse(response);
             return response;
@@ -142,7 +142,7 @@ public class OrgServiceImpl implements OrgService {
         }
         try {
             searchResult =
-                    esUtilService.searchDocuments(Constants.ORG_INDEX_NAME, searchCriteria);
+                    esUtilService.searchDocuments(Constants.USER_INDEX_NAME, searchCriteria);
             response.getResult().put(Constants.RESULT, searchResult);
             createSuccessResponse(response);
             return response;
@@ -157,13 +157,13 @@ public class OrgServiceImpl implements OrgService {
     }
 
     @Override
-    public CustomResponse assignOrg(JsonNode orgEntity, String token) {
+    public CustomResponse assignUser(JsonNode userEntity, String token) {
         return null;
     }
 
     @Override
     public CustomResponse read(String id) {
-        log.info("OrgServiceImpl::read:inside the method");
+        log.info("UserServiceImpl::read:inside the method");
         CustomResponse response = new CustomResponse();
         if (StringUtils.isEmpty(id)) {
             response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
@@ -173,21 +173,21 @@ public class OrgServiceImpl implements OrgService {
         try {
             String cachedJson = cacheService.getCache(id);
             if (StringUtils.isNotEmpty(cachedJson)) {
-                log.info("OrgServiceImpl::read:Record coming from redis cache");
+                log.info("UserServiceImpl::read:Record coming from redis cache");
                 response.setMessage(Constants.SUCCESSFULLY_READING);
                 response
                         .getResult()
                         .put(Constants.RESULT, objectMapper.readValue(cachedJson, new TypeReference<Object>() {
                         }));
             } else {
-                Optional<OrgEntity> entityOptional = orgRepository.findById(id);
+                Optional<UserEntity> entityOptional = userRepository.findById(id);
                 if (entityOptional.isPresent()) {
-                    OrgEntity orgEntity = entityOptional.get();
-                    ObjectNode jsonNode = buildDocument(orgEntity.getData(),
-                            orgEntity.getStatus(), orgEntity.getCreatedOn(),
-                            orgEntity.getUpdatedOn());
+                    UserEntity userEntity = entityOptional.get();
+                    ObjectNode jsonNode = buildDocument(userEntity.getData(),
+                            userEntity.getStatus(), userEntity.getCreatedOn(),
+                            userEntity.getUpdatedOn());
                     cacheService.putCache(id, jsonNode);
-                    log.info("OrgServiceImpl::read:Record coming from postgres db");
+                    log.info("UserServiceImpl::read:Record coming from postgres db");
                     response.setMessage(Constants.SUCCESSFULLY_READING);
                     response
                             .getResult()
@@ -208,37 +208,37 @@ public class OrgServiceImpl implements OrgService {
     }
 
     @Override
-    public CustomResponse updateOrg(String id, JsonNode orgEntity) {
-        log.info("OrgServiceImpl::updateOrg:entered the method with id: {}", id);
+    public CustomResponse updateUser(String id, JsonNode userEntity) {
+        log.info("UserServiceImpl::updateUser:entered the method with id: {}", id);
         CustomResponse response = new CustomResponse();
 
         // Validate that the ID is not null or empty
         if (StringUtils.isEmpty(id)) {
-            log.warn("OrgServiceImpl::updateOrg:id is null or empty");
+            log.warn("UserServiceImpl::updateUser:id is null or empty");
             response.setResponseCode(HttpStatus.BAD_REQUEST);
             response.setMessage(Constants.ID_NOT_FOUND);
             return response;
         }
 
         // Validate the incoming payload against the entity schema (same as create)
-        payloadValidation.validatePayload(Constants.ORG_VALIDATION_FILE_JSON, orgEntity);
-        log.debug("OrgServiceImpl::updateOrg:validated the payload");
+        payloadValidation.validatePayload(Constants.USER_VALIDATION_FILE_JSON, userEntity);
+        log.debug("UserServiceImpl::updateUser:validated the payload");
 
         try {
             // Check if the entity exists in the database
-            Optional<OrgEntity> entityOptional = orgRepository.findById(id);
+            Optional<UserEntity> entityOptional = userRepository.findById(id);
             if (entityOptional.isEmpty()) {
-                log.warn("OrgServiceImpl::updateOrg:no record found for id: {}", id);
+                log.warn("UserServiceImpl::updateUser:no record found for id: {}", id);
                 response.setResponseCode(HttpStatus.NOT_FOUND);
                 response.setMessage(Constants.INVALID_ID);
                 return response;
             }
 
-            OrgEntity orgEntity1 = entityOptional.get();
+            UserEntity userEntity1 = entityOptional.get();
 
             // Reject updates on soft-deleted (DELETED) records
-            if (Constants.DELETED.equals(orgEntity1.getStatus())) {
-                log.warn("OrgServiceImpl::updateOrg:record already deleted for id: {}", id);
+            if (Constants.DELETED.equals(userEntity1.getStatus())) {
+                log.warn("UserServiceImpl::updateUser:record already deleted for id: {}", id);
                 response.setResponseCode(HttpStatus.BAD_REQUEST);
                 response.setMessage("Record is already deleted");
                 return response;
@@ -246,31 +246,31 @@ public class OrgServiceImpl implements OrgService {
 
             // Replace payload; preserve id / createdOn / status, bump updatedOn
             Timestamp currentTime = new Timestamp(System.currentTimeMillis());
-            orgEntity1.setData(orgEntity);
-            orgEntity1.setUpdatedOn(currentTime);
-            orgRepository.save(orgEntity1);
-            log.info("OrgServiceImpl::updateOrg:updated record in postgres for id: {}", id);
+            userEntity1.setData(userEntity);
+            userEntity1.setUpdatedOn(currentTime);
+            userRepository.save(userEntity1);
+            log.info("UserServiceImpl::updateUser:updated record in postgres for id: {}", id);
 
             // Re-index the document in Elasticsearch (filtered to whitelisted fields)
-            ObjectNode jsonNode = buildDocument(orgEntity, orgEntity1.getStatus(),
-                    orgEntity1.getCreatedOn(), currentTime);
+            ObjectNode jsonNode = buildDocument(userEntity, userEntity1.getStatus(),
+                    userEntity1.getCreatedOn(), currentTime);
             Map<String, Object> map = objectMapper.convertValue(jsonNode, Map.class);
-            esUtilService.updateDocument(Constants.ORG_INDEX_NAME, Constants.INDEX_TYPE,
-                    id, map, vergProperties.getElasticOrgJsonPath());
-            log.info("OrgServiceImpl::updateOrg:updated document in elasticsearch for id: {}", id);
+            esUtilService.updateDocument(Constants.USER_INDEX_NAME, Constants.INDEX_TYPE,
+                    id, map, vergProperties.getElasticUserJsonPath());
+            log.info("UserServiceImpl::updateUser:updated document in elasticsearch for id: {}", id);
 
             // Refresh the Redis cache
             cacheService.putCache(id, jsonNode);
-            log.info("OrgServiceImpl::updateOrg:refreshed cache for id: {}", id);
+            log.info("UserServiceImpl::updateUser:refreshed cache for id: {}", id);
 
-            map.put(Constants.ORG_ID_RQST, id);
+            map.put(Constants.USER_ID_RQST, id);
             response.setResult(map);
             response.setMessage(Constants.SUCCESSFULLY_UPDATED);
             response.setResponseCode(HttpStatus.OK);
             return response;
 
         } catch (Exception e) {
-            log.error("OrgServiceImpl::updateOrg:error while updating record for id: {}", id, e);
+            log.error("UserServiceImpl::updateUser:error while updating record for id: {}", id, e);
             throw new CustomException("error while processing", e.getMessage(),
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
@@ -278,12 +278,12 @@ public class OrgServiceImpl implements OrgService {
 
     @Override
     public CustomResponse delete(String id) {
-        log.info("OrgServiceImpl::delete:inside the method with id: {}", id);
+        log.info("UserServiceImpl::delete:inside the method with id: {}", id);
         CustomResponse response = new CustomResponse();
 
         // Validate that the ID is not null or empty
         if (StringUtils.isEmpty(id)) {
-            log.warn("OrgServiceImpl::delete:id is null or empty");
+            log.warn("UserServiceImpl::delete:id is null or empty");
             response.setResponseCode(HttpStatus.BAD_REQUEST);
             response.setMessage(Constants.ID_NOT_FOUND);
             return response;
@@ -291,44 +291,44 @@ public class OrgServiceImpl implements OrgService {
 
         try {
             // Check if the entity exists in the database
-            Optional<OrgEntity> entityOptional = orgRepository.findById(id);
+            Optional<UserEntity> entityOptional = userRepository.findById(id);
             if (entityOptional.isEmpty()) {
-                log.warn("OrgServiceImpl::delete:no record found for id: {}", id);
+                log.warn("UserServiceImpl::delete:no record found for id: {}", id);
                 response.setResponseCode(HttpStatus.NOT_FOUND);
                 response.setMessage(Constants.INVALID_ID);
                 return response;
             }
 
-            OrgEntity orgEntity = entityOptional.get();
+            UserEntity userEntity = entityOptional.get();
 
             // Check if the entity is already deleted
-            if (Constants.DELETED.equals(orgEntity.getStatus())) {
-                log.warn("OrgServiceImpl::delete:record already deleted for id: {}", id);
+            if (Constants.DELETED.equals(userEntity.getStatus())) {
+                log.warn("UserServiceImpl::delete:record already deleted for id: {}", id);
                 response.setResponseCode(HttpStatus.BAD_REQUEST);
                 response.setMessage("Record is already deleted");
                 return response;
             }
 
             // Soft delete: mark the status DELETED and set updatedOn timestamp
-            orgEntity.setStatus(Constants.DELETED);
-            orgEntity.setUpdatedOn(new Timestamp(System.currentTimeMillis()));
-            orgRepository.save(orgEntity);
-            log.info("OrgServiceImpl::delete:soft deleted record in postgres for id: {}", id);
+            userEntity.setStatus(Constants.DELETED);
+            userEntity.setUpdatedOn(new Timestamp(System.currentTimeMillis()));
+            userRepository.save(userEntity);
+            log.info("UserServiceImpl::delete:soft deleted record in postgres for id: {}", id);
 
             // Remove document from Elasticsearch
-            esUtilService.deleteDocument(id, Constants.ORG_INDEX_NAME);
-            log.info("OrgServiceImpl::delete:deleted document from elasticsearch for id: {}", id);
+            esUtilService.deleteDocument(id, Constants.USER_INDEX_NAME);
+            log.info("UserServiceImpl::delete:deleted document from elasticsearch for id: {}", id);
 
             // Remove from Redis cache
             cacheService.deleteCache(id);
-            log.info("OrgServiceImpl::delete:evicted cache for id: {}", id);
+            log.info("UserServiceImpl::delete:evicted cache for id: {}", id);
 
             response.setMessage(Constants.SUCCESSFULLY_DELETED);
             response.setResponseCode(HttpStatus.OK);
             return response;
 
         } catch (Exception e) {
-            log.error("OrgServiceImpl::delete:error while deleting record for id: {}", id, e);
+            log.error("UserServiceImpl::delete:error while deleting record for id: {}", id, e);
             throw new CustomException(Constants.ERROR, "error while deleting record",
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
@@ -336,40 +336,40 @@ public class OrgServiceImpl implements OrgService {
 
     @Override
     public CustomResponse importData(MultipartFile file) {
-        log.info("OrgServiceImpl::importData::started");
+        log.info("UserServiceImpl::importData::started");
         return importService.processBulkImport(
                 file,
-                Constants.ORG_VALIDATION_FILE_JSON,
-                this::createOrg
+                Constants.USER_VALIDATION_FILE_JSON,
+                this::createUser
         );
     }
 
     @Override
-    public CustomResponse draftOrg(JsonNode orgEntity) {
-        log.info("OrgServiceImpl::draftOrg:entered the method: " + orgEntity);
+    public CustomResponse draftUser(JsonNode userEntity) {
+        log.info("UserServiceImpl::draftUser:entered the method: " + userEntity);
         CustomResponse response = new CustomResponse();
         // Relaxed validation: types/structure enforced, but required fields may be missing
-        payloadValidation.validatePayloadRelaxed(Constants.ORG_VALIDATION_FILE_JSON, orgEntity);
-        log.debug("OrgServiceImpl::draftOrg:validated the payload (relaxed)");
+        payloadValidation.validatePayloadRelaxed(Constants.USER_VALIDATION_FILE_JSON, userEntity);
+        log.debug("UserServiceImpl::draftUser:validated the payload (relaxed)");
         try {
-            OrgEntity orgEntity1 = new OrgEntity();
-            String primaryID = primaryKeyUtil.generateKey(Constants.ORG_VALIDATION_FILE_JSON);
-            orgEntity1.setOrgId(primaryID);
+            UserEntity userEntity1 = new UserEntity();
+            String primaryID = primaryKeyUtil.generateKey(Constants.USER_VALIDATION_FILE_JSON);
+            userEntity1.setUserId(primaryID);
             Timestamp currentTime = new Timestamp(System.currentTimeMillis());
-            orgEntity1.setCreatedOn(currentTime);
-            orgEntity1.setUpdatedOn(currentTime);
-            orgEntity1.setStatus(Constants.DRAFT);
-            orgEntity1.setData(orgEntity);
+            userEntity1.setCreatedOn(currentTime);
+            userEntity1.setUpdatedOn(currentTime);
+            userEntity1.setStatus(Constants.DRAFT);
+            userEntity1.setData(userEntity);
 
-            orgRepository.save(orgEntity1);
-            log.info("OrgServiceImpl::draftOrg::persisted draft in postgres");
+            userRepository.save(userEntity1);
+            log.info("UserServiceImpl::draftUser::persisted draft in postgres");
 
-            ObjectNode jsonNode = buildDocument(orgEntity, Constants.DRAFT, currentTime, currentTime);
+            ObjectNode jsonNode = buildDocument(userEntity, Constants.DRAFT, currentTime, currentTime);
             Map<String, Object> map = objectMapper.convertValue(jsonNode, Map.class);
-            esUtilService.addDocument(Constants.ORG_INDEX_NAME, Constants.INDEX_TYPE,
-                    String.valueOf(primaryID), map, vergProperties.getElasticOrgJsonPath());
+            esUtilService.addDocument(Constants.USER_INDEX_NAME, Constants.INDEX_TYPE,
+                    String.valueOf(primaryID), map, vergProperties.getElasticUserJsonPath());
             cacheService.putCache(primaryID, jsonNode);
-            map.put(Constants.ORG_ID_RQST, primaryID);
+            map.put(Constants.USER_ID_RQST, primaryID);
             response.setResult(map);
             response.setMessage(Constants.SUCCESSFULLY_CREATED);
             response.setResponseCode(HttpStatus.OK);
@@ -381,8 +381,8 @@ public class OrgServiceImpl implements OrgService {
     }
 
     @Override
-    public CustomResponse addOrg(String id, JsonNode orgEntity) {
-        log.info("OrgServiceImpl::addOrg:entered the method with id: {}", id);
+    public CustomResponse addUser(String id, JsonNode userEntity) {
+        log.info("UserServiceImpl::addUser:entered the method with id: {}", id);
         CustomResponse response = new CustomResponse();
         if (StringUtils.isEmpty(id)) {
             response.setResponseCode(HttpStatus.BAD_REQUEST);
@@ -390,38 +390,38 @@ public class OrgServiceImpl implements OrgService {
             return response;
         }
         // Full validation: all required fields must be present to submit for approval
-        payloadValidation.validatePayload(Constants.ORG_VALIDATION_FILE_JSON, orgEntity);
-        log.debug("OrgServiceImpl::addOrg:validated the payload");
+        payloadValidation.validatePayload(Constants.USER_VALIDATION_FILE_JSON, userEntity);
+        log.debug("UserServiceImpl::addUser:validated the payload");
         try {
-            Optional<OrgEntity> entityOptional = orgRepository.findById(id);
+            Optional<UserEntity> entityOptional = userRepository.findById(id);
             if (entityOptional.isEmpty()) {
                 response.setResponseCode(HttpStatus.NOT_FOUND);
                 response.setMessage(Constants.INVALID_ID);
                 return response;
             }
-            OrgEntity orgEntity1 = entityOptional.get();
+            UserEntity userEntity1 = entityOptional.get();
             // Only DRAFT or REWORK records can be (re-)submitted for approval
-            if (!LifecycleUtil.ADD_PROMOTABLE.contains(orgEntity1.getStatus())) {
-                log.warn("OrgServiceImpl::addOrg:record {} not in DRAFT/REWORK (status={})",
-                        id, orgEntity1.getStatus());
+            if (!LifecycleUtil.ADD_PROMOTABLE.contains(userEntity1.getStatus())) {
+                log.warn("UserServiceImpl::addUser:record {} not in DRAFT/REWORK (status={})",
+                        id, userEntity1.getStatus());
                 response.setResponseCode(HttpStatus.CONFLICT);
                 response.setMessage(Constants.INVALID_STATUS_TRANSITION);
                 return response;
             }
             Timestamp currentTime = new Timestamp(System.currentTimeMillis());
-            orgEntity1.setData(orgEntity);
-            orgEntity1.setStatus(Constants.PENDING);
-            orgEntity1.setUpdatedOn(currentTime);
-            orgRepository.save(orgEntity1);
-            log.info("OrgServiceImpl::addOrg:submitted record {} for approval (PENDING)", id);
+            userEntity1.setData(userEntity);
+            userEntity1.setStatus(Constants.PENDING);
+            userEntity1.setUpdatedOn(currentTime);
+            userRepository.save(userEntity1);
+            log.info("UserServiceImpl::addUser:submitted record {} for approval (PENDING)", id);
 
-            ObjectNode jsonNode = buildDocument(orgEntity, Constants.PENDING,
-                    orgEntity1.getCreatedOn(), currentTime);
+            ObjectNode jsonNode = buildDocument(userEntity, Constants.PENDING,
+                    userEntity1.getCreatedOn(), currentTime);
             Map<String, Object> map = objectMapper.convertValue(jsonNode, Map.class);
-            esUtilService.updateDocument(Constants.ORG_INDEX_NAME, Constants.INDEX_TYPE,
-                    id, map, vergProperties.getElasticOrgJsonPath());
+            esUtilService.updateDocument(Constants.USER_INDEX_NAME, Constants.INDEX_TYPE,
+                    id, map, vergProperties.getElasticUserJsonPath());
             cacheService.putCache(id, jsonNode);
-            map.put(Constants.ORG_ID_RQST, id);
+            map.put(Constants.USER_ID_RQST, id);
             response.setResult(map);
             response.setMessage(Constants.SUCCESSFULLY_UPDATED);
             response.setResponseCode(HttpStatus.OK);
@@ -433,20 +433,20 @@ public class OrgServiceImpl implements OrgService {
     }
 
     @Override
-    public CustomResponse approveOrg(LifecycleRequest request) {
-        log.info("OrgServiceImpl::approveOrg:entered the method");
+    public CustomResponse approveUser(LifecycleRequest request) {
+        log.info("UserServiceImpl::approveUser:entered the method");
         return transitionStatus(request, LifecycleUtil.APPROVE_FROM, LifecycleUtil.APPROVE_TARGETS);
     }
 
     @Override
-    public CustomResponse reviewOrg(LifecycleRequest request) {
-        log.info("OrgServiceImpl::reviewOrg:entered the method");
+    public CustomResponse reviewUser(LifecycleRequest request) {
+        log.info("UserServiceImpl::reviewUser:entered the method");
         return transitionStatus(request, LifecycleUtil.REVIEW_FROM, LifecycleUtil.REVIEW_TARGETS);
     }
 
     @Override
     public CustomResponse toggleStatus(String id) {
-        log.info("OrgServiceImpl::toggleStatus:entered the method with id: {}", id);
+        log.info("UserServiceImpl::toggleStatus:entered the method with id: {}", id);
         CustomResponse response = new CustomResponse();
         if (StringUtils.isEmpty(id)) {
             response.setResponseCode(HttpStatus.BAD_REQUEST);
@@ -454,14 +454,14 @@ public class OrgServiceImpl implements OrgService {
             return response;
         }
         try {
-            Optional<OrgEntity> entityOptional = orgRepository.findById(id);
+            Optional<UserEntity> entityOptional = userRepository.findById(id);
             if (entityOptional.isEmpty()) {
                 response.setResponseCode(HttpStatus.NOT_FOUND);
                 response.setMessage(Constants.INVALID_ID);
                 return response;
             }
-            OrgEntity orgEntity1 = entityOptional.get();
-            String currentStatus = orgEntity1.getStatus();
+            UserEntity userEntity1 = entityOptional.get();
+            String currentStatus = userEntity1.getStatus();
             String newStatus;
             if (Constants.ACTIVE.equals(currentStatus)) {
                 newStatus = Constants.IN_ACTIVE;
@@ -469,25 +469,25 @@ public class OrgServiceImpl implements OrgService {
                 newStatus = Constants.ACTIVE;
             } else {
                 // Only a published (ACTIVE) or deactivated (INACTIVE) record can be toggled
-                log.warn("OrgServiceImpl::toggleStatus:record {} is {}, can only toggle ACTIVE<->INACTIVE",
+                log.warn("UserServiceImpl::toggleStatus:record {} is {}, can only toggle ACTIVE<->INACTIVE",
                         id, currentStatus);
                 response.setResponseCode(HttpStatus.CONFLICT);
                 response.setMessage(Constants.INVALID_STATUS_TRANSITION);
                 return response;
             }
             Timestamp currentTime = new Timestamp(System.currentTimeMillis());
-            orgEntity1.setStatus(newStatus);
-            orgEntity1.setUpdatedOn(currentTime);
-            orgRepository.save(orgEntity1);
-            log.info("OrgServiceImpl::toggleStatus:record {} toggled {} -> {}", id, currentStatus, newStatus);
+            userEntity1.setStatus(newStatus);
+            userEntity1.setUpdatedOn(currentTime);
+            userRepository.save(userEntity1);
+            log.info("UserServiceImpl::toggleStatus:record {} toggled {} -> {}", id, currentStatus, newStatus);
 
-            ObjectNode jsonNode = buildDocument(orgEntity1.getData(), newStatus,
-                    orgEntity1.getCreatedOn(), currentTime);
+            ObjectNode jsonNode = buildDocument(userEntity1.getData(), newStatus,
+                    userEntity1.getCreatedOn(), currentTime);
             Map<String, Object> map = objectMapper.convertValue(jsonNode, Map.class);
-            esUtilService.updateDocument(Constants.ORG_INDEX_NAME, Constants.INDEX_TYPE,
-                    id, map, vergProperties.getElasticOrgJsonPath());
+            esUtilService.updateDocument(Constants.USER_INDEX_NAME, Constants.INDEX_TYPE,
+                    id, map, vergProperties.getElasticUserJsonPath());
             cacheService.putCache(id, jsonNode);
-            map.put(Constants.ORG_ID_RQST, id);
+            map.put(Constants.USER_ID_RQST, id);
             response.setResult(map);
             response.setMessage(Constants.SUCCESSFULLY_UPDATED);
             response.setResponseCode(HttpStatus.OK);
@@ -513,41 +513,41 @@ public class OrgServiceImpl implements OrgService {
         String id = request.getId();
         String targetStatus = LifecycleUtil.normalizeTarget(request.getStatus());
         if (targetStatus == null || !allowedTargets.contains(targetStatus)) {
-            log.warn("OrgServiceImpl::transitionStatus:invalid target status '{}' for id {}",
+            log.warn("UserServiceImpl::transitionStatus:invalid target status '{}' for id {}",
                     request.getStatus(), id);
             response.setResponseCode(HttpStatus.BAD_REQUEST);
             response.setMessage(Constants.INVALID_STATUS);
             return response;
         }
         try {
-            Optional<OrgEntity> entityOptional = orgRepository.findById(id);
+            Optional<UserEntity> entityOptional = userRepository.findById(id);
             if (entityOptional.isEmpty()) {
                 response.setResponseCode(HttpStatus.NOT_FOUND);
                 response.setMessage(Constants.INVALID_ID);
                 return response;
             }
-            OrgEntity orgEntity1 = entityOptional.get();
-            if (!requiredCurrentStatus.equals(orgEntity1.getStatus())) {
-                log.warn("OrgServiceImpl::transitionStatus:record {} is {}, requires {}",
-                        id, orgEntity1.getStatus(), requiredCurrentStatus);
+            UserEntity userEntity1 = entityOptional.get();
+            if (!requiredCurrentStatus.equals(userEntity1.getStatus())) {
+                log.warn("UserServiceImpl::transitionStatus:record {} is {}, requires {}",
+                        id, userEntity1.getStatus(), requiredCurrentStatus);
                 response.setResponseCode(HttpStatus.CONFLICT);
                 response.setMessage(Constants.INVALID_STATUS_TRANSITION);
                 return response;
             }
             Timestamp currentTime = new Timestamp(System.currentTimeMillis());
-            orgEntity1.setStatus(targetStatus);
-            orgEntity1.setUpdatedOn(currentTime);
-            orgRepository.save(orgEntity1);
-            log.info("OrgServiceImpl::transitionStatus:record {} moved {} -> {}",
+            userEntity1.setStatus(targetStatus);
+            userEntity1.setUpdatedOn(currentTime);
+            userRepository.save(userEntity1);
+            log.info("UserServiceImpl::transitionStatus:record {} moved {} -> {}",
                     id, requiredCurrentStatus, targetStatus);
 
-            ObjectNode jsonNode = buildDocument(orgEntity1.getData(), targetStatus,
-                    orgEntity1.getCreatedOn(), currentTime);
+            ObjectNode jsonNode = buildDocument(userEntity1.getData(), targetStatus,
+                    userEntity1.getCreatedOn(), currentTime);
             Map<String, Object> map = objectMapper.convertValue(jsonNode, Map.class);
-            esUtilService.updateDocument(Constants.ORG_INDEX_NAME, Constants.INDEX_TYPE,
-                    id, map, vergProperties.getElasticOrgJsonPath());
+            esUtilService.updateDocument(Constants.USER_INDEX_NAME, Constants.INDEX_TYPE,
+                    id, map, vergProperties.getElasticUserJsonPath());
             cacheService.putCache(id, jsonNode);
-            map.put(Constants.ORG_ID_RQST, id);
+            map.put(Constants.USER_ID_RQST, id);
             response.setResult(map);
             response.setMessage(Constants.SUCCESSFULLY_UPDATED);
             response.setResponseCode(HttpStatus.OK);
@@ -561,7 +561,7 @@ public class OrgServiceImpl implements OrgService {
     /**
      * Builds the projection stored in Elasticsearch and Redis (and returned by read): the payload
      * plus the lifecycle status and the Postgres createdOn/updatedOn timestamps (ISO-8601). ES keeps
-     * only whitelisted keys, so status/createdOn/updatedOn must be present in esOrgRequiredFields.json.
+     * only whitelisted keys, so status/createdOn/updatedOn must be present in esUserRequiredFields.json.
      */
     private ObjectNode buildDocument(JsonNode data, String status, Timestamp createdOn, Timestamp updatedOn) {
         ObjectNode node = objectMapper.createObjectNode();

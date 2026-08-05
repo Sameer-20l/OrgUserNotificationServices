@@ -1,4 +1,4 @@
-package com.catalogue.verg.{{service_name_lower}}.service;
+package com.catalogue.verg.user.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.catalogue.verg.core.dto.CustomResponse;
@@ -7,30 +7,30 @@ import com.catalogue.verg.core.elasticsearch.dto.SearchCriteria;
 import org.springframework.web.multipart.MultipartFile;
 
 
-public interface {{service_name_pascal}}Service {
+public interface UserService {
 
-    CustomResponse create{{service_name_pascal}}(JsonNode {{service_name_camel}}Entity);
+    CustomResponse createUser(JsonNode userEntity);
 
-    CustomResponse update{{service_name_pascal}}(String id, JsonNode {{service_name_camel}}Entity);
+    CustomResponse updateUser(String id, JsonNode userEntity);
 
     // Lifecycle: create an incomplete DRAFT (relaxed validation)
-    CustomResponse draft{{service_name_pascal}}(JsonNode {{service_name_camel}}Entity);
+    CustomResponse draftUser(JsonNode userEntity);
 
     // Lifecycle: (re-)submit a DRAFT/REWORK record for approval -> PENDING (full validation)
-    CustomResponse add{{service_name_pascal}}(String id, JsonNode {{service_name_camel}}Entity);
+    CustomResponse addUser(String id, JsonNode userEntity);
 
     // Lifecycle: PENDING -> APPROVED | REJECTED | REWORK
-    CustomResponse approve{{service_name_pascal}}(LifecycleRequest request);
+    CustomResponse approveUser(LifecycleRequest request);
 
     // Lifecycle: APPROVED -> ACTIVE(published) | REJECTED | REWORK | PENDING
-    CustomResponse review{{service_name_pascal}}(LifecycleRequest request);
+    CustomResponse reviewUser(LifecycleRequest request);
 
     // Toggle a live record between ACTIVE and INACTIVE (rejects any other status)
     CustomResponse toggleStatus(String id);
 
-    CustomResponse search{{service_name_pascal}}(SearchCriteria searchCriteria);
+    CustomResponse searchUser(SearchCriteria searchCriteria);
 
-    CustomResponse assign{{service_name_pascal}}(JsonNode {{service_name_camel}}Entity, String token);
+    CustomResponse assignUser(JsonNode userEntity, String token);
 
     CustomResponse read(String id);
 
