@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.catalogue.verg.core.cache.CacheService;
+import com.catalogue.verg.core.config.LifecyclePolicy;
 import com.catalogue.verg.core.dto.CustomResponse;
 import com.catalogue.verg.core.dto.LifecycleRequest;
 import com.catalogue.verg.core.dto.RespParam;
@@ -20,7 +21,9 @@ import com.catalogue.verg.core.util.Constants;
 import com.catalogue.verg.core.util.LifecycleUtil;
 import com.catalogue.verg.core.util.PayloadValidation;
 import com.catalogue.verg.core.util.VergProperties;
+// import com.catalogue.verg.core.service.AuditLogService;
 import com.catalogue.verg.core.service.ImportService;
+import com.catalogue.verg.core.service.LoadFromPrimaryService;
 import com.catalogue.verg.core.util.PrimaryKeyUtil;
 import com.catalogue.verg.org.entity.OrgEntity;
 import com.catalogue.verg.org.repository.OrgRepository;
@@ -41,7 +44,7 @@ import java.sql.Timestamp;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
+// import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 
@@ -75,6 +78,21 @@ public class OrgServiceImpl implements OrgService {
     @Autowired
     private ImportService importService;
 
+    @Autowired
+    private LoadFromPrimaryService loadFromPrimaryService;
+
+    // @Autowired
+    // private AuditLogService auditLogService;
+
+    @Autowired
+    private LifecyclePolicy lifecyclePolicy;
+
+    /**
+     * Catalogue name recorded on every audit row emitted by this service. Doubles as the key
+     * this catalogue is looked up by in the lifecycle switches ({@link LifecyclePolicy}).
+     */
+    private static final String AUDIT_ENTITY_NAME = "org";
+
     private Logger logger = LoggerFactory.getLogger(OrgServiceImpl.class);
 
     @Value("${spring.redis.cacheTtl}")
@@ -95,15 +113,17 @@ public class OrgServiceImpl implements OrgService {
             orgEntity1.setOrgId(primaryID);
             // Create Parameters like createdDate / updateDate / Data and Status
             Timestamp currentTime = new Timestamp(System.currentTimeMillis());
+            
+            String initialStatus = lifecyclePolicy.initialStatus(AUDIT_ENTITY_NAME);
             orgEntity1.setCreatedOn(currentTime);
             orgEntity1.setUpdatedOn(currentTime);
-            orgEntity1.setStatus(Constants.PENDING);
+            orgEntity1.setStatus(initialStatus);
             orgEntity1.setData(orgEntity);
 
             orgRepository.save(orgEntity1);
 
             log.info("OrgServiceImpl::createOrg::persisted org in postgres");
-            ObjectNode jsonNode = buildDocument(orgEntity, Constants.PENDING, currentTime, currentTime);
+            ObjectNode jsonNode = buildDocument(orgEntity, initialStatus, currentTime, currentTime);
             Map<String, Object> map = objectMapper.convertValue(jsonNode, Map.class);
             esUtilService.addDocument(Constants.ORG_INDEX_NAME, Constants.INDEX_TYPE,
                     String.valueOf(primaryID), map, vergProperties.getElasticOrgJsonPath());
@@ -113,6 +133,9 @@ public class OrgServiceImpl implements OrgService {
             response.setResult(map);
             response.setResponseCode(HttpStatus.OK);
             log.info("OrgServiceImpl::createOrg::persisted org in OAS");
+            // auditLogService.logAudit(primaryID, AUDIT_ENTITY_NAME, "create", initialStatus,
+            //         objectMapper.createObjectNode(), orgEntity,
+            //         orgEntity1.getCreatedOn(), orgEntity1.getUpdatedOn());
             return response;
 
         } catch (Exception e) {
@@ -131,6 +154,8 @@ public class OrgServiceImpl implements OrgService {
             log.info("OrgServiceImpl::searchOrg: org search result fetched from redis");
             response.getResult().put(Constants.RESULT, searchResult);
             createSuccessResponse(response);
+            // auditLogService.logAudit(null, AUDIT_ENTITY_NAME, "search", null, null,
+            //         objectMapper.valueToTree(searchResult), null, null);
             return response;
         }
         String searchString = searchCriteria.getSearchString();
@@ -145,6 +170,8 @@ public class OrgServiceImpl implements OrgService {
                     esUtilService.searchDocuments(Constants.ORG_INDEX_NAME, searchCriteria);
             response.getResult().put(Constants.RESULT, searchResult);
             createSuccessResponse(response);
+            // auditLogService.logAudit(null, AUDIT_ENTITY_NAME, "search", null, null,
+            //         objectMapper.valueToTree(searchResult), null, null);
             return response;
         } catch (Exception e) {
             createErrorResponse(response, e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR,
@@ -170,6 +197,9 @@ public class OrgServiceImpl implements OrgService {
             response.setMessage(Constants.ID_NOT_FOUND);
             return response;
         }
+        JsonNode auditAfter = null;
+        Timestamp auditCreatedOn = null;
+        Timestamp auditUpdatedOn = null;
         try {
             String cachedJson = cacheService.getCache(id);
             if (StringUtils.isNotEmpty(cachedJson)) {
@@ -179,6 +209,7 @@ public class OrgServiceImpl implements OrgService {
                         .getResult()
                         .put(Constants.RESULT, objectMapper.readValue(cachedJson, new TypeReference<Object>() {
                         }));
+                auditAfter = objectMapper.readTree(cachedJson);
             } else {
                 Optional<OrgEntity> entityOptional = orgRepository.findById(id);
                 if (entityOptional.isPresent()) {
@@ -195,6 +226,9 @@ public class OrgServiceImpl implements OrgService {
                                     objectMapper.convertValue(
                                             jsonNode, new TypeReference<Object>() {
                                             }));
+                    auditAfter = jsonNode;
+                    auditCreatedOn = orgEntity.getCreatedOn();
+                    auditUpdatedOn = orgEntity.getUpdatedOn();
                 } else {
                     response.setResponseCode(HttpStatus.NOT_FOUND);
                     response.setMessage(Constants.INVALID_ID);
@@ -204,6 +238,10 @@ public class OrgServiceImpl implements OrgService {
             throw new CustomException(Constants.ERROR, "error while processing",
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
+        // if (auditAfter != null) {
+        //     auditLogService.logAudit(id, AUDIT_ENTITY_NAME, "read", null, null, auditAfter,
+        //             auditCreatedOn, auditUpdatedOn);
+        // }
         return response;
     }
 
@@ -325,6 +363,9 @@ public class OrgServiceImpl implements OrgService {
 
             response.setMessage(Constants.SUCCESSFULLY_DELETED);
             response.setResponseCode(HttpStatus.OK);
+            // auditLogService.logAudit(id, AUDIT_ENTITY_NAME, "delete", Constants.DELETED,
+            //         orgEntity.getData(), orgEntity.getData(),
+            //         orgEntity.getCreatedOn(), orgEntity.getUpdatedOn());
             return response;
 
         } catch (Exception e) {
@@ -345,8 +386,24 @@ public class OrgServiceImpl implements OrgService {
     }
 
     @Override
+    public CustomResponse loadFromPrimaryOrg() {
+        log.info("OrgServiceImpl::loadFromPrimaryOrg::started");
+        return loadFromPrimaryService.loadFromPrimary(
+                Constants.ORG_INDEX_NAME,
+                vergProperties.getElasticOrgJsonPath(),
+                orgRepository.findAll(),
+                OrgEntity::getOrgId,
+                e -> objectMapper.convertValue(
+                        buildDocument(e.getData(), e.getStatus(), e.getCreatedOn(), e.getUpdatedOn()),
+                        Map.class),
+                e -> !Constants.DELETED.equals(e.getStatus()));   // skip DELETED; INACTIVE is indexed
+    }
+
+    @Override
     public CustomResponse draftOrg(JsonNode orgEntity) {
         log.info("OrgServiceImpl::draftOrg:entered the method: " + orgEntity);
+        // Guard before the try block: the 404 must not be swallowed by the catch below
+        lifecyclePolicy.requireEnabled(AUDIT_ENTITY_NAME);
         CustomResponse response = new CustomResponse();
         // Relaxed validation: types/structure enforced, but required fields may be missing
         payloadValidation.validatePayloadRelaxed(Constants.ORG_VALIDATION_FILE_JSON, orgEntity);
@@ -373,6 +430,9 @@ public class OrgServiceImpl implements OrgService {
             response.setResult(map);
             response.setMessage(Constants.SUCCESSFULLY_CREATED);
             response.setResponseCode(HttpStatus.OK);
+            // auditLogService.logAudit(primaryID, AUDIT_ENTITY_NAME, "draft", Constants.DRAFT,
+            //         objectMapper.createObjectNode(), orgEntity,
+            //         orgEntity1.getCreatedOn(), orgEntity1.getUpdatedOn());
             return response;
         } catch (Exception e) {
             throw new CustomException("error while processing", e.getMessage(),
@@ -383,6 +443,8 @@ public class OrgServiceImpl implements OrgService {
     @Override
     public CustomResponse addOrg(String id, JsonNode orgEntity) {
         log.info("OrgServiceImpl::addOrg:entered the method with id: {}", id);
+        // Guard before the try block: the 404 must not be swallowed by the catch below
+        lifecyclePolicy.requireEnabled(AUDIT_ENTITY_NAME);
         CustomResponse response = new CustomResponse();
         if (StringUtils.isEmpty(id)) {
             response.setResponseCode(HttpStatus.BAD_REQUEST);
@@ -409,6 +471,7 @@ public class OrgServiceImpl implements OrgService {
                 return response;
             }
             Timestamp currentTime = new Timestamp(System.currentTimeMillis());
+            JsonNode auditBefore = orgEntity1.getData();
             orgEntity1.setData(orgEntity);
             orgEntity1.setStatus(Constants.PENDING);
             orgEntity1.setUpdatedOn(currentTime);
@@ -425,6 +488,9 @@ public class OrgServiceImpl implements OrgService {
             response.setResult(map);
             response.setMessage(Constants.SUCCESSFULLY_UPDATED);
             response.setResponseCode(HttpStatus.OK);
+            // auditLogService.logAudit(id, AUDIT_ENTITY_NAME, "add-promote", Constants.PENDING,
+            //         auditBefore, orgEntity,
+            //         orgEntity1.getCreatedOn(), orgEntity1.getUpdatedOn());
             return response;
         } catch (Exception e) {
             throw new CustomException("error while processing", e.getMessage(),
@@ -435,13 +501,15 @@ public class OrgServiceImpl implements OrgService {
     @Override
     public CustomResponse approveOrg(LifecycleRequest request) {
         log.info("OrgServiceImpl::approveOrg:entered the method");
-        return transitionStatus(request, LifecycleUtil.APPROVE_FROM, LifecycleUtil.APPROVE_TARGETS);
+        lifecyclePolicy.requireEnabled(AUDIT_ENTITY_NAME);
+        return transitionStatus(request, "approve", LifecycleUtil.APPROVE_FROM, LifecycleUtil.APPROVE_TARGETS);
     }
 
     @Override
     public CustomResponse reviewOrg(LifecycleRequest request) {
         log.info("OrgServiceImpl::reviewOrg:entered the method");
-        return transitionStatus(request, LifecycleUtil.REVIEW_FROM, LifecycleUtil.REVIEW_TARGETS);
+        lifecyclePolicy.requireEnabled(AUDIT_ENTITY_NAME);
+        return transitionStatus(request, "review", LifecycleUtil.REVIEW_FROM, LifecycleUtil.REVIEW_TARGETS);
     }
 
     @Override
@@ -491,6 +559,9 @@ public class OrgServiceImpl implements OrgService {
             response.setResult(map);
             response.setMessage(Constants.SUCCESSFULLY_UPDATED);
             response.setResponseCode(HttpStatus.OK);
+            // auditLogService.logAudit(id, AUDIT_ENTITY_NAME, "toggle", newStatus,
+            //         orgEntity1.getData(), orgEntity1.getData(),
+            //         orgEntity1.getCreatedOn(), orgEntity1.getUpdatedOn());
             return response;
         } catch (Exception e) {
             throw new CustomException("error while processing", e.getMessage(),
@@ -502,8 +573,8 @@ public class OrgServiceImpl implements OrgService {
      * Shared status-transition logic for approve/review. Validates the id and requested target status,
      * enforces the required current status, then persists the new status to Postgres, ES and Redis.
      */
-    private CustomResponse transitionStatus(LifecycleRequest request, String requiredCurrentStatus,
-                                            Set<String> allowedTargets) {
+    private CustomResponse transitionStatus(LifecycleRequest request, String operation,
+                                            String requiredCurrentStatus, Set<String> allowedTargets) {
         CustomResponse response = new CustomResponse();
         if (request == null || StringUtils.isEmpty(request.getId())) {
             response.setResponseCode(HttpStatus.BAD_REQUEST);
@@ -551,6 +622,9 @@ public class OrgServiceImpl implements OrgService {
             response.setResult(map);
             response.setMessage(Constants.SUCCESSFULLY_UPDATED);
             response.setResponseCode(HttpStatus.OK);
+            // auditLogService.logAudit(id, AUDIT_ENTITY_NAME, operation, targetStatus,
+            //         orgEntity1.getData(), orgEntity1.getData(),
+            //         orgEntity1.getCreatedOn(), orgEntity1.getUpdatedOn());
             return response;
         } catch (Exception e) {
             throw new CustomException("error while processing", e.getMessage(),

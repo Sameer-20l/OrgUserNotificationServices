@@ -17,13 +17,9 @@ public class VergProperties {
 
         @Value("${search.string.max.regex.length}")
         private int searchStringMaxRegexLength;
-
-        @Value("${elastic.required.field.sample.json.path}")
-        private String elasticSampleJsonPath;
+        @Value("${elastic.required.field.user.json.path}")
+        private String elasticUserJsonPath;
     
         @Value("${elastic.required.field.org.json.path}")
         private String elasticOrgJsonPath;
-    
-        @Value("${elastic.required.field.user.json.path}")
-        private String elasticUserJsonPath;
     }
