@@ -18,10 +18,12 @@ import com.catalogue.verg.core.elasticsearch.dto.SearchResult;
 import com.catalogue.verg.core.elasticsearch.service.ESUtilService;
 import com.catalogue.verg.core.exception.CustomException;
 import com.catalogue.verg.core.util.Constants;
+import com.catalogue.verg.core.util.HashUtil;
 import com.catalogue.verg.core.util.LifecycleUtil;
 import com.catalogue.verg.core.util.PayloadValidation;
 import com.catalogue.verg.core.util.VergProperties;
 // import com.catalogue.verg.core.service.AuditLogService;
+import com.catalogue.verg.core.service.AuthUserService;
 import com.catalogue.verg.core.service.ImportService;
 import com.catalogue.verg.core.service.LoadFromPrimaryService;
 import com.catalogue.verg.core.util.PrimaryKeyUtil;
@@ -36,6 +38,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import org.springframework.web.multipart.MultipartFile;
@@ -87,6 +90,9 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private LifecyclePolicy lifecyclePolicy;
 
+    @Autowired
+    private AuthUserService authUserService;
+
     /**
      * Catalogue name recorded on every audit row emitted by this service. Doubles as the key
      * this catalogue is looked up by in the lifecycle switches ({@link LifecyclePolicy}).
@@ -105,25 +111,51 @@ public class UserServiceImpl implements UserService {
         payloadValidation.validatePayload(Constants.USER_VALIDATION_FILE_JSON, userEntity);
 
         log.debug("UserServiceImpl::createUser:validated the payload");
+
+        // Generate Primary Key up front: auth_service is told the userId this catalogue will use.
+        String primaryID = primaryKeyUtil.generateKey(Constants.USER_VALIDATION_FILE_JSON);
+
+        // The auth identity is only created when the record goes live on create, i.e. when the
+        // lifecycle is off for this catalogue (catalogue.lifecycle.entities.user=false). With the
+        // lifecycle on, the record starts PENDING and has no business existing in auth_service yet.
+        if (!lifecyclePolicy.isEnabledFor(AUDIT_ENTITY_NAME)) {
+            // auth_service owns the identity: nothing is persisted here unless it accepts the user.
+            // Kept outside the try below so a rejection is not re-wrapped as a generic 500.
+            ResponseEntity<Map<String, Object>> authResponse = authUserService.createAuthUser(
+                    textValue(userEntity, Constants.FIRST_NAME),
+                    textValue(userEntity, Constants.LAST_NAME),
+                    textValue(userEntity, Constants.EMAIL),
+                    primaryID,
+                    textValue(userEntity, Constants.ORG_ID_RQST),
+                    textValue(userEntity, Constants.ENTITY_TYPE));
+            if (authResponse == null || !authResponse.getStatusCode().is2xxSuccessful()) {
+                log.error("UserServiceImpl::createUser::auth_service returned a non-2xx status: {}",
+                        authResponse == null ? "no response" : authResponse.getStatusCode());
+                throw new CustomException(Constants.FAILED_CONST, Constants.AUTH_USER_CREATE_FAILED,
+                        HttpStatus.BAD_GATEWAY);
+            }
+            log.info("UserServiceImpl::createUser::auth user created, proceeding to persist userId: {}", primaryID);
+        } 
+        // Hash the credentials before they reach postgres, ES or redis; raw values are not stored.
+        JsonNode userPayload = HashUtil.hashSecrets(userEntity, Constants.PASSWORD, Constants.PIN);
+
         try {
             log.info("UserServiceImpl::createUser:creating user");
             UserEntity userEntity1 = new UserEntity();
-            // Generate Primary Key
-            String primaryID = primaryKeyUtil.generateKey(Constants.USER_VALIDATION_FILE_JSON);
             userEntity1.setUserId(primaryID);
             // Create Parameters like createdDate / updateDate / Data and Status
             Timestamp currentTime = new Timestamp(System.currentTimeMillis());
-            
+
             String initialStatus = lifecyclePolicy.initialStatus(AUDIT_ENTITY_NAME);
             userEntity1.setCreatedOn(currentTime);
             userEntity1.setUpdatedOn(currentTime);
             userEntity1.setStatus(initialStatus);
-            userEntity1.setData(userEntity);
+            userEntity1.setData(userPayload);
 
             userRepository.save(userEntity1);
 
             log.info("UserServiceImpl::createUser::persisted user in postgres");
-            ObjectNode jsonNode = buildDocument(userEntity, initialStatus, currentTime, currentTime);
+            ObjectNode jsonNode = buildDocument(userPayload, initialStatus, currentTime, currentTime);
             Map<String, Object> map = objectMapper.convertValue(jsonNode, Map.class);
             esUtilService.addDocument(Constants.USER_INDEX_NAME, Constants.INDEX_TYPE,
                     String.valueOf(primaryID), map, vergProperties.getElasticUserJsonPath());
@@ -630,6 +662,16 @@ public class UserServiceImpl implements UserService {
             throw new CustomException("error while processing", e.getMessage(),
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    /**
+     * Null-safe read of a string field off the request payload.
+     */
+    private String textValue(JsonNode payload, String field) {
+        if (payload == null || !payload.hasNonNull(field)) {
+            return null;
+        }
+        return payload.get(field).asText();
     }
 
     /**

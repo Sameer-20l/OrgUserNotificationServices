@@ -80,6 +80,14 @@ public class Constants{
     public static final String USER_VALIDATION_FILE_JSON = "/payloadValidation/userPayloadValidation.json";
     public static final String USER_ID_RQST = "userId";
     public static final String USER_INDEX_NAME = "user_index";
+    public static final String FIRST_NAME = "firstName";
+    public static final String LAST_NAME = "lastName";
+    public static final String EMAIL = "email";
+    public static final String ENTITY_TYPE = "entityType";
+    public static final String PASSWORD = "password";
+    public static final String PIN = "pin";
+    // auth_service must accept the user before anything is persisted
+    public static final String AUTH_USER_CREATE_FAILED = "auth_service rejected the user creation";
 
     
     // Org Specific Constants
