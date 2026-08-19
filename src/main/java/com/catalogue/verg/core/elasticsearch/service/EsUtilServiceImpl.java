@@ -207,6 +207,23 @@ public class EsUtilServiceImpl implements ESUtilService {
     }
 
     @Override
+    public void deleteIndex(String indexName) throws IOException {
+        try {
+            if (isIndexPresent(indexName)) {
+                elasticsearchClient.indices().delete(d -> d.index(indexName));
+                log.info("EsUtilServiceImpl :: deleteIndex: dropped index {}", indexName);
+            } else {
+                log.info("EsUtilServiceImpl :: deleteIndex: index {} not present, skipping", indexName);
+            }
+        } catch (Exception e) {
+            log.error("Error deleting index {}", indexName, e);
+            throw new CustomException("LOAD_FROM_PRIMARY_ERROR",
+                    "Failed to delete index " + indexName + ": " + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Override
     public BulkResponse saveAll(String esIndexName, String type,
                                 List<JsonNode> entities) throws IOException {
         try {

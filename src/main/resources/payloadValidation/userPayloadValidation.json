@@ -17,6 +17,15 @@
             "type": "string",
             "description": "Family name"
         },
+        "dateOfBirth": {
+            "type": "string",
+            "description": "Date of birth as an RFC 3339 full-date (yyyy-MM-dd, zero-padded); a time component is rejected",
+            "format": "date"
+        },
+        "gender": {
+            "type": "string",
+            "description": "Gender; free string validated against the shared reference list at the caller layer"
+        },
         "email": {
             "type": "string",
             "description": "Email address"
@@ -28,6 +37,10 @@
         "orgId": {
             "type": "string",
             "description": "Organisation id this user belongs to (org catalogue reference)"
+        },
+        "departmentName": {
+            "type": "string",
+            "description": "Department the user belongs to, e.g. Horticulture, Soil Science, Plant Pathology"
         },
         "entityType": {
             "type": "string",
@@ -43,11 +56,13 @@
         },
         "passwordExpiresOn": {
             "type": "string",
-            "description": "ISO-8601 date-time the password expires"
+            "description": "RFC 3339 date-time the password expires; UTC offset is mandatory (e.g. 2026-08-19T10:15:30Z)",
+            "format": "date-time"
         },
         "pinExpiresOn": {
             "type": "string",
-            "description": "ISO-8601 date-time the PIN expires"
+            "description": "RFC 3339 date-time the PIN expires; UTC offset is mandatory (e.g. 2026-08-19T10:15:30Z)",
+            "format": "date-time"
         },
         "createdBy": {
             "type": "string",
@@ -64,6 +79,7 @@
         "email",
         "orgId",
         "entityType",
-        "password"
+        "password",
+        "pin"
     ]
 }

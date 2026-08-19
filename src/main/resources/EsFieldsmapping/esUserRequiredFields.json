@@ -5,6 +5,12 @@
     "lastName": {
         "type": "keyword"
     },
+    "dateOfBirth": {
+        "type": "date"
+    },
+    "gender": {
+        "type": "keyword"
+    },
     "email": {
         "type": "keyword"
     },
@@ -12,6 +18,9 @@
         "type": "keyword"
     },
     "orgId": {
+        "type": "keyword"
+    },
+    "departmentName": {
         "type": "keyword"
     },
     "entityType": {
@@ -22,6 +31,12 @@
     },
     "updatedBy": {
         "type": "keyword"
+    },
+    "password": {
+        "type": "text"
+    },
+    "pin": {
+        "type": "text"
     },
     "passwordExpiresOn": {
         "type": "date"

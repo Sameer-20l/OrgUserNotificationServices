@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.catalogue.verg.core.cache.CacheService;
+import com.catalogue.verg.core.config.LifecyclePolicy;
 import com.catalogue.verg.core.dto.CustomResponse;
 import com.catalogue.verg.core.dto.LifecycleRequest;
 import com.catalogue.verg.core.dto.RespParam;
@@ -17,10 +18,14 @@ import com.catalogue.verg.core.elasticsearch.dto.SearchResult;
 import com.catalogue.verg.core.elasticsearch.service.ESUtilService;
 import com.catalogue.verg.core.exception.CustomException;
 import com.catalogue.verg.core.util.Constants;
+import com.catalogue.verg.core.util.HashUtil;
 import com.catalogue.verg.core.util.LifecycleUtil;
 import com.catalogue.verg.core.util.PayloadValidation;
 import com.catalogue.verg.core.util.VergProperties;
+// import com.catalogue.verg.core.service.AuditLogService;
+import com.catalogue.verg.core.service.AuthUserService;
 import com.catalogue.verg.core.service.ImportService;
+import com.catalogue.verg.core.service.LoadFromPrimaryService;
 import com.catalogue.verg.core.util.PrimaryKeyUtil;
 import com.catalogue.verg.user.entity.UserEntity;
 import com.catalogue.verg.user.repository.UserRepository;
@@ -33,6 +38,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import org.springframework.web.multipart.MultipartFile;
@@ -41,7 +47,7 @@ import java.sql.Timestamp;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
+// import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 
@@ -75,6 +81,24 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private ImportService importService;
 
+    @Autowired
+    private LoadFromPrimaryService loadFromPrimaryService;
+
+    // @Autowired
+    // private AuditLogService auditLogService;
+
+    @Autowired
+    private LifecyclePolicy lifecyclePolicy;
+
+    @Autowired
+    private AuthUserService authUserService;
+
+    /**
+     * Catalogue name recorded on every audit row emitted by this service. Doubles as the key
+     * this catalogue is looked up by in the lifecycle switches ({@link LifecyclePolicy}).
+     */
+    private static final String AUDIT_ENTITY_NAME = "user";
+
     private Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
 
     @Value("${spring.redis.cacheTtl}")
@@ -87,23 +111,51 @@ public class UserServiceImpl implements UserService {
         payloadValidation.validatePayload(Constants.USER_VALIDATION_FILE_JSON, userEntity);
 
         log.debug("UserServiceImpl::createUser:validated the payload");
+
+        // Generate Primary Key up front: auth_service is told the userId this catalogue will use.
+        String primaryID = primaryKeyUtil.generateKey(Constants.USER_VALIDATION_FILE_JSON);
+
+        // The auth identity is only created when the record goes live on create, i.e. when the
+        // lifecycle is off for this catalogue (catalogue.lifecycle.entities.user=false). With the
+        // lifecycle on, the record starts PENDING and has no business existing in auth_service yet.
+        if (!lifecyclePolicy.isEnabledFor(AUDIT_ENTITY_NAME)) {
+            // auth_service owns the identity: nothing is persisted here unless it accepts the user.
+            // Kept outside the try below so a rejection is not re-wrapped as a generic 500.
+            ResponseEntity<Map<String, Object>> authResponse = authUserService.createAuthUser(
+                    textValue(userEntity, Constants.FIRST_NAME),
+                    textValue(userEntity, Constants.LAST_NAME),
+                    textValue(userEntity, Constants.EMAIL),
+                    primaryID,
+                    textValue(userEntity, Constants.ORG_ID_RQST),
+                    textValue(userEntity, Constants.ENTITY_TYPE));
+            if (authResponse == null || !authResponse.getStatusCode().is2xxSuccessful()) {
+                log.error("UserServiceImpl::createUser::auth_service returned a non-2xx status: {}",
+                        authResponse == null ? "no response" : authResponse.getStatusCode());
+                throw new CustomException(Constants.FAILED_CONST, Constants.AUTH_USER_CREATE_FAILED,
+                        HttpStatus.BAD_GATEWAY);
+            }
+            log.info("UserServiceImpl::createUser::auth user created, proceeding to persist userId: {}", primaryID);
+        } 
+        // Hash the credentials before they reach postgres, ES or redis; raw values are not stored.
+        JsonNode userPayload = HashUtil.hashSecrets(userEntity, Constants.PASSWORD, Constants.PIN);
+
         try {
             log.info("UserServiceImpl::createUser:creating user");
             UserEntity userEntity1 = new UserEntity();
-            // Generate Primary Key
-            String primaryID = primaryKeyUtil.generateKey(Constants.USER_VALIDATION_FILE_JSON);
             userEntity1.setUserId(primaryID);
             // Create Parameters like createdDate / updateDate / Data and Status
             Timestamp currentTime = new Timestamp(System.currentTimeMillis());
+
+            String initialStatus = lifecyclePolicy.initialStatus(AUDIT_ENTITY_NAME);
             userEntity1.setCreatedOn(currentTime);
             userEntity1.setUpdatedOn(currentTime);
-            userEntity1.setStatus(Constants.PENDING);
-            userEntity1.setData(userEntity);
+            userEntity1.setStatus(initialStatus);
+            userEntity1.setData(userPayload);
 
             userRepository.save(userEntity1);
 
             log.info("UserServiceImpl::createUser::persisted user in postgres");
-            ObjectNode jsonNode = buildDocument(userEntity, Constants.PENDING, currentTime, currentTime);
+            ObjectNode jsonNode = buildDocument(userPayload, initialStatus, currentTime, currentTime);
             Map<String, Object> map = objectMapper.convertValue(jsonNode, Map.class);
             esUtilService.addDocument(Constants.USER_INDEX_NAME, Constants.INDEX_TYPE,
                     String.valueOf(primaryID), map, vergProperties.getElasticUserJsonPath());
@@ -113,6 +165,9 @@ public class UserServiceImpl implements UserService {
             response.setResult(map);
             response.setResponseCode(HttpStatus.OK);
             log.info("UserServiceImpl::createUser::persisted user in OAS");
+            // auditLogService.logAudit(primaryID, AUDIT_ENTITY_NAME, "create", initialStatus,
+            //         objectMapper.createObjectNode(), userEntity,
+            //         userEntity1.getCreatedOn(), userEntity1.getUpdatedOn());
             return response;
 
         } catch (Exception e) {
@@ -131,6 +186,8 @@ public class UserServiceImpl implements UserService {
             log.info("UserServiceImpl::searchUser: user search result fetched from redis");
             response.getResult().put(Constants.RESULT, searchResult);
             createSuccessResponse(response);
+            // auditLogService.logAudit(null, AUDIT_ENTITY_NAME, "search", null, null,
+            //         objectMapper.valueToTree(searchResult), null, null);
             return response;
         }
         String searchString = searchCriteria.getSearchString();
@@ -145,6 +202,8 @@ public class UserServiceImpl implements UserService {
                     esUtilService.searchDocuments(Constants.USER_INDEX_NAME, searchCriteria);
             response.getResult().put(Constants.RESULT, searchResult);
             createSuccessResponse(response);
+            // auditLogService.logAudit(null, AUDIT_ENTITY_NAME, "search", null, null,
+            //         objectMapper.valueToTree(searchResult), null, null);
             return response;
         } catch (Exception e) {
             createErrorResponse(response, e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR,
@@ -170,6 +229,9 @@ public class UserServiceImpl implements UserService {
             response.setMessage(Constants.ID_NOT_FOUND);
             return response;
         }
+        JsonNode auditAfter = null;
+        Timestamp auditCreatedOn = null;
+        Timestamp auditUpdatedOn = null;
         try {
             String cachedJson = cacheService.getCache(id);
             if (StringUtils.isNotEmpty(cachedJson)) {
@@ -179,6 +241,7 @@ public class UserServiceImpl implements UserService {
                         .getResult()
                         .put(Constants.RESULT, objectMapper.readValue(cachedJson, new TypeReference<Object>() {
                         }));
+                auditAfter = objectMapper.readTree(cachedJson);
             } else {
                 Optional<UserEntity> entityOptional = userRepository.findById(id);
                 if (entityOptional.isPresent()) {
@@ -195,6 +258,9 @@ public class UserServiceImpl implements UserService {
                                     objectMapper.convertValue(
                                             jsonNode, new TypeReference<Object>() {
                                             }));
+                    auditAfter = jsonNode;
+                    auditCreatedOn = userEntity.getCreatedOn();
+                    auditUpdatedOn = userEntity.getUpdatedOn();
                 } else {
                     response.setResponseCode(HttpStatus.NOT_FOUND);
                     response.setMessage(Constants.INVALID_ID);
@@ -204,6 +270,10 @@ public class UserServiceImpl implements UserService {
             throw new CustomException(Constants.ERROR, "error while processing",
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
+        // if (auditAfter != null) {
+        //     auditLogService.logAudit(id, AUDIT_ENTITY_NAME, "read", null, null, auditAfter,
+        //             auditCreatedOn, auditUpdatedOn);
+        // }
         return response;
     }
 
@@ -325,6 +395,9 @@ public class UserServiceImpl implements UserService {
 
             response.setMessage(Constants.SUCCESSFULLY_DELETED);
             response.setResponseCode(HttpStatus.OK);
+            // auditLogService.logAudit(id, AUDIT_ENTITY_NAME, "delete", Constants.DELETED,
+            //         userEntity.getData(), userEntity.getData(),
+            //         userEntity.getCreatedOn(), userEntity.getUpdatedOn());
             return response;
 
         } catch (Exception e) {
@@ -345,8 +418,24 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public CustomResponse loadFromPrimaryUser() {
+        log.info("UserServiceImpl::loadFromPrimaryUser::started");
+        return loadFromPrimaryService.loadFromPrimary(
+                Constants.USER_INDEX_NAME,
+                vergProperties.getElasticUserJsonPath(),
+                userRepository.findAll(),
+                UserEntity::getUserId,
+                e -> objectMapper.convertValue(
+                        buildDocument(e.getData(), e.getStatus(), e.getCreatedOn(), e.getUpdatedOn()),
+                        Map.class),
+                e -> !Constants.DELETED.equals(e.getStatus()));   // skip DELETED; INACTIVE is indexed
+    }
+
+    @Override
     public CustomResponse draftUser(JsonNode userEntity) {
         log.info("UserServiceImpl::draftUser:entered the method: " + userEntity);
+        // Guard before the try block: the 404 must not be swallowed by the catch below
+        lifecyclePolicy.requireEnabled(AUDIT_ENTITY_NAME);
         CustomResponse response = new CustomResponse();
         // Relaxed validation: types/structure enforced, but required fields may be missing
         payloadValidation.validatePayloadRelaxed(Constants.USER_VALIDATION_FILE_JSON, userEntity);
@@ -373,6 +462,9 @@ public class UserServiceImpl implements UserService {
             response.setResult(map);
             response.setMessage(Constants.SUCCESSFULLY_CREATED);
             response.setResponseCode(HttpStatus.OK);
+            // auditLogService.logAudit(primaryID, AUDIT_ENTITY_NAME, "draft", Constants.DRAFT,
+            //         objectMapper.createObjectNode(), userEntity,
+            //         userEntity1.getCreatedOn(), userEntity1.getUpdatedOn());
             return response;
         } catch (Exception e) {
             throw new CustomException("error while processing", e.getMessage(),
@@ -383,6 +475,8 @@ public class UserServiceImpl implements UserService {
     @Override
     public CustomResponse addUser(String id, JsonNode userEntity) {
         log.info("UserServiceImpl::addUser:entered the method with id: {}", id);
+        // Guard before the try block: the 404 must not be swallowed by the catch below
+        lifecyclePolicy.requireEnabled(AUDIT_ENTITY_NAME);
         CustomResponse response = new CustomResponse();
         if (StringUtils.isEmpty(id)) {
             response.setResponseCode(HttpStatus.BAD_REQUEST);
@@ -409,6 +503,7 @@ public class UserServiceImpl implements UserService {
                 return response;
             }
             Timestamp currentTime = new Timestamp(System.currentTimeMillis());
+            JsonNode auditBefore = userEntity1.getData();
             userEntity1.setData(userEntity);
             userEntity1.setStatus(Constants.PENDING);
             userEntity1.setUpdatedOn(currentTime);
@@ -425,6 +520,9 @@ public class UserServiceImpl implements UserService {
             response.setResult(map);
             response.setMessage(Constants.SUCCESSFULLY_UPDATED);
             response.setResponseCode(HttpStatus.OK);
+            // auditLogService.logAudit(id, AUDIT_ENTITY_NAME, "add-promote", Constants.PENDING,
+            //         auditBefore, userEntity,
+            //         userEntity1.getCreatedOn(), userEntity1.getUpdatedOn());
             return response;
         } catch (Exception e) {
             throw new CustomException("error while processing", e.getMessage(),
@@ -435,13 +533,15 @@ public class UserServiceImpl implements UserService {
     @Override
     public CustomResponse approveUser(LifecycleRequest request) {
         log.info("UserServiceImpl::approveUser:entered the method");
-        return transitionStatus(request, LifecycleUtil.APPROVE_FROM, LifecycleUtil.APPROVE_TARGETS);
+        lifecyclePolicy.requireEnabled(AUDIT_ENTITY_NAME);
+        return transitionStatus(request, "approve", LifecycleUtil.APPROVE_FROM, LifecycleUtil.APPROVE_TARGETS);
     }
 
     @Override
     public CustomResponse reviewUser(LifecycleRequest request) {
         log.info("UserServiceImpl::reviewUser:entered the method");
-        return transitionStatus(request, LifecycleUtil.REVIEW_FROM, LifecycleUtil.REVIEW_TARGETS);
+        lifecyclePolicy.requireEnabled(AUDIT_ENTITY_NAME);
+        return transitionStatus(request, "review", LifecycleUtil.REVIEW_FROM, LifecycleUtil.REVIEW_TARGETS);
     }
 
     @Override
@@ -491,6 +591,9 @@ public class UserServiceImpl implements UserService {
             response.setResult(map);
             response.setMessage(Constants.SUCCESSFULLY_UPDATED);
             response.setResponseCode(HttpStatus.OK);
+            // auditLogService.logAudit(id, AUDIT_ENTITY_NAME, "toggle", newStatus,
+            //         userEntity1.getData(), userEntity1.getData(),
+            //         userEntity1.getCreatedOn(), userEntity1.getUpdatedOn());
             return response;
         } catch (Exception e) {
             throw new CustomException("error while processing", e.getMessage(),
@@ -502,8 +605,8 @@ public class UserServiceImpl implements UserService {
      * Shared status-transition logic for approve/review. Validates the id and requested target status,
      * enforces the required current status, then persists the new status to Postgres, ES and Redis.
      */
-    private CustomResponse transitionStatus(LifecycleRequest request, String requiredCurrentStatus,
-                                            Set<String> allowedTargets) {
+    private CustomResponse transitionStatus(LifecycleRequest request, String operation,
+                                            String requiredCurrentStatus, Set<String> allowedTargets) {
         CustomResponse response = new CustomResponse();
         if (request == null || StringUtils.isEmpty(request.getId())) {
             response.setResponseCode(HttpStatus.BAD_REQUEST);
@@ -551,11 +654,24 @@ public class UserServiceImpl implements UserService {
             response.setResult(map);
             response.setMessage(Constants.SUCCESSFULLY_UPDATED);
             response.setResponseCode(HttpStatus.OK);
+            // auditLogService.logAudit(id, AUDIT_ENTITY_NAME, operation, targetStatus,
+            //         userEntity1.getData(), userEntity1.getData(),
+            //         userEntity1.getCreatedOn(), userEntity1.getUpdatedOn());
             return response;
         } catch (Exception e) {
             throw new CustomException("error while processing", e.getMessage(),
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    /**
+     * Null-safe read of a string field off the request payload.
+     */
+    private String textValue(JsonNode payload, String field) {
+        if (payload == null || !payload.hasNonNull(field)) {
+            return null;
+        }
+        return payload.get(field).asText();
     }
 
     /**

@@ -28,5 +28,7 @@ public interface ESUtilService {
 
     boolean isIndexPresent(String indexName) throws IOException;
 
+    void deleteIndex(String indexName) throws IOException;
+
     BulkResponse saveAll(String esIndexName, String type, List<JsonNode> entities) throws IOException;
 }

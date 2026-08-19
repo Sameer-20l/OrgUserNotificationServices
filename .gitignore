@@ -118,6 +118,7 @@ CLAUDE.md
 
 #===== postman collections (local only, not pushed) ====
 postman/
+OAS-NOU-service.postman_collection-dev.json
 
 
 #===== test scripts (local only, not pushed) ====

@@ -73,9 +73,20 @@ def to_regular(name: str) -> str:
     """vergsample -> Vergsample | my-service -> My Service"""
     return ' '.join(word.capitalize() for word in re.split(r'[-_\s]', name))
 
+def to_bool(value: str) -> bool:
+    """Accepts True/False (and common aliases) for argparse flags."""
+    if isinstance(value, bool):
+        return value
+    if value.strip().lower() in ("true", "t", "yes", "y", "1"):
+        return True
+    if value.strip().lower() in ("false", "f", "no", "n", "0"):
+        return False
+    raise argparse.ArgumentTypeError(f"Expected True or False, got '{value}'")
+
 class CreateRegistry:
 
-    def __init__(self, service_name: str):
+    def __init__(self, service_name: str, skip_schema: bool = False):
+        self.skip_schema   = skip_schema
         self.service_name  = service_name
         self.lower         = to_lower(service_name)
         self.pascal        = to_pascal_case(service_name)
@@ -148,6 +159,9 @@ class CreateRegistry:
     # ------------------------------------------------------------------ #
     def generate_payload_validation_json(self):
         output_path = os.path.join(self.resource_path, "payloadValidation", f"{self.camel}PayloadValidation.json")
+        if self.skip_schema:
+            log_skipped(f"{rel_path(output_path)} (--skipSchema True).")
+            return
         if Path(output_path).is_file():
             log_skipped(f"{rel_path(output_path)} already exists.")
             return
@@ -172,6 +186,9 @@ class CreateRegistry:
 
     def generate_es_mapping_json(self):
         output_path = os.path.join(self.resource_path, "EsFieldsmapping", f"es{self.pascal}RequiredFields.json")
+        if self.skip_schema:
+            log_skipped(f"{rel_path(output_path)} (--skipSchema True).")
+            return
         if Path(output_path).is_file():
             log_skipped(f"{rel_path(output_path)} already exists.")
             return
@@ -265,7 +282,8 @@ class CreateRegistry:
 
 class DeleteRegistry:
 
-    def __init__(self, service_name: str):
+    def __init__(self, service_name: str, skip_schema: bool = False):
+        self.skip_schema  = skip_schema
         self.service_name = service_name
         self.lower        = to_lower(service_name)
         self.pascal       = to_pascal_case(service_name)
@@ -335,14 +353,18 @@ class DeleteRegistry:
     #  JSON File Deletors                                                  #
     # ------------------------------------------------------------------ #
     def delete_payload_validation_json(self):
-        self._delete_file(
-            os.path.join(self.resource_path, "payloadValidation", f"{self.camel}PayloadValidation.json")
-        )
+        file_path = os.path.join(self.resource_path, "payloadValidation", f"{self.camel}PayloadValidation.json")
+        if self.skip_schema:
+            log_skipped(f"{rel_path(file_path)} (--skipSchema True).")
+            return
+        self._delete_file(file_path)
 
     def delete_es_mapping_json(self):
-        self._delete_file(
-            os.path.join(self.resource_path, "EsFieldsmapping", f"es{self.pascal}RequiredFields.json")
-        )
+        file_path = os.path.join(self.resource_path, "EsFieldsmapping", f"es{self.pascal}RequiredFields.json")
+        if self.skip_schema:
+            log_skipped(f"{rel_path(file_path)} (--skipSchema True).")
+            return
+        self._delete_file(file_path)
 
     # ------------------------------------------------------------------ #
     #  File Editors — Remove injected lines                                #
@@ -449,8 +471,13 @@ if __name__ == "__main__":
     text = pyfiglet.print_figlet(text="Open Agri Stack", font="slant", colors="green")
     parser = argparse.ArgumentParser()
     parser.add_argument("--name",   required=True, nargs="+",
-                        help="Comma-separated catalogue names (e.g. --name crop,pesticide,fertilizer)")
+                        help="Comma-separated catalogue names (e.g. --name cropType,pesticide,fertilizer)")
     parser.add_argument("--action", required=True, choices=["create", "delete"])
+    parser.add_argument("--skipSchema", dest="skip_schema", type=to_bool,
+                        nargs="?", const=True, default=False,
+                        help="True/False. When True, the payloadValidation and EsFieldsmapping "
+                             "JSON files are left untouched (not created on --action create, "
+                             "not removed on --action delete). Default: False")
     args = parser.parse_args()
 
     names = [n.strip().replace(" ", "-") for n in " ".join(args.name).split(",") if n.strip()]
@@ -465,8 +492,8 @@ if __name__ == "__main__":
         print(f"{Style.BOLD}└{'─' * border_len}┘\n")
 
         if args.action == "create":
-            CreateRegistry(name).generate_all()
+            CreateRegistry(name, skip_schema=args.skip_schema).generate_all()
         elif args.action == "delete":
-            DeleteRegistry(name).delete_all()
+            DeleteRegistry(name, skip_schema=args.skip_schema).delete_all()
 
     print_summary(args.action, names)

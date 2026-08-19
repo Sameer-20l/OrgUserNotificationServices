@@ -46,6 +46,13 @@
             </exclusions>
         </dependency>
 
+        <!-- BCrypt password hashing only. Deliberately NOT spring-boot-starter-security:
+             this artifact is standalone and brings no filter chain / auto-configuration. -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.httpcomponents.client5</groupId>
             <artifactId>httpclient5</artifactId>
