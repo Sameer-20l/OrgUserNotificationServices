@@ -89,6 +89,13 @@ public class Constants{
     // auth_service must accept the user before anything is persisted
     public static final String AUTH_USER_CREATE_FAILED = "auth_service rejected the user creation";
 
+    // Credential verification (/user/v1/verify)
+    public static final String EMAIL_PASSWORD_REQUIRED = "Email and password are required";
+    public static final String EMAIL_NOT_REGISTERED = "Email not registered";
+    public static final String INVALID_CREDENTIALS = "Invalid credentials";
+    public static final String USER_NOT_ACTIVE = "User is not active";
+    public static final String SUCCESSFULLY_VERIFIED = "successfully verified";
+
     
     // Org Specific Constants
     public static final String ORG_VALIDATION_FILE_JSON = "/payloadValidation/orgPayloadValidation.json";

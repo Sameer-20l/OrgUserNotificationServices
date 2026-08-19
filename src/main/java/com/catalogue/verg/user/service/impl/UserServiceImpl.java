@@ -44,6 +44,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.sql.Timestamp;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -213,6 +215,83 @@ public class UserServiceImpl implements UserService {
                             TimeUnit.SECONDS);
             return response;
         }
+    }
+
+    @Override
+    public CustomResponse verifyUser(JsonNode verifyRequest) {
+        log.info("UserServiceImpl::verifyUser:entered the method");
+        CustomResponse response = new CustomResponse();
+        String email = textValue(verifyRequest, Constants.EMAIL);
+        String password = textValue(verifyRequest, Constants.PASSWORD);
+
+        if (StringUtils.isEmpty(email) || StringUtils.isEmpty(password)) {
+            log.warn("UserServiceImpl::verifyUser:email or password missing on the payload");
+            response.setResponseCode(HttpStatus.BAD_REQUEST);
+            response.setMessage(Constants.EMAIL_PASSWORD_REQUIRED);
+            return response;
+        }
+
+        try {
+            // 1. Does the email exist? Exact match against the indexed record.
+            JsonNode userDocument = findIndexedUserByEmail(email);
+            if (userDocument == null) {
+                log.warn("UserServiceImpl::verifyUser:no indexed user found for the given email");
+                response.setResponseCode(HttpStatus.UNAUTHORIZED);
+                response.setMessage(Constants.INVALID_CREDENTIALS);
+                return response;
+            }
+
+            // 2. Does the plaintext password match the stored hash? BCrypt salts per call, so the
+            // stored value can only be checked with matches() — never by re-hashing and comparing.
+            if (!HashUtil.matches(password, textValue(userDocument, Constants.PASSWORD))) {
+                log.warn("UserServiceImpl::verifyUser:password mismatch for the given email");
+                response.setResponseCode(HttpStatus.UNAUTHORIZED);
+                response.setMessage(Constants.INVALID_CREDENTIALS);
+                return response;
+            }
+
+            // 3. Is the record live? DRAFT / PENDING / INACTIVE / DELETED must not verify.
+            String status = textValue(userDocument, Constants.STATUS);
+            if (!Constants.ACTIVE.equals(status)) {
+                log.warn("UserServiceImpl::verifyUser:user is {}, not ACTIVE", status);
+                response.setResponseCode(HttpStatus.FORBIDDEN);
+                response.setMessage(Constants.USER_NOT_ACTIVE);
+                return response;
+            }
+
+            log.info("UserServiceImpl::verifyUser:credentials verified for userId: {}",
+                    textValue(userDocument, Constants.ID));
+            response.getResult().put(Constants.USER_ID_RQST, textValue(userDocument, Constants.ID));
+            response.getResult().put(Constants.EMAIL, email);
+            response.getResult().put(Constants.STATUS, status);
+            response.setMessage(Constants.SUCCESSFULLY_VERIFIED);
+            response.setResponseCode(HttpStatus.OK);
+            return response;
+        } catch (Exception e) {
+            log.error("UserServiceImpl::verifyUser:error while verifying the user", e);
+            throw new CustomException("error while processing", e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+   
+    private JsonNode findIndexedUserByEmail(String email) throws Exception {
+        SearchCriteria searchCriteria = new SearchCriteria();
+        HashMap<String, Object> filterCriteriaMap = new HashMap<>();
+        filterCriteriaMap.put(Constants.EMAIL, email);
+        searchCriteria.setFilterCriteriaMap(filterCriteriaMap);
+        searchCriteria.setRequestedFields(
+                List.of(Constants.EMAIL, Constants.PASSWORD, Constants.STATUS));
+        searchCriteria.setPageNumber(0);
+        searchCriteria.setPageSize(1);
+
+        SearchResult searchResult =
+                esUtilService.searchDocuments(Constants.USER_INDEX_NAME, searchCriteria);
+        JsonNode data = searchResult == null ? null : searchResult.getData();
+        if (data == null || !data.isArray() || data.size() == 0) {
+            return null;
+        }
+        return data.get(0);
     }
 
     @Override
