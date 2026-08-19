@@ -79,6 +79,14 @@ public class UserController {
         return new ResponseEntity<>(response, response.getResponseCode());
     }
 
+    // Verifies {email, password}: the email must be registered, the password must match the stored
+    // hash, and the record must be ACTIVE. Not gated: independent of the approval chain.
+    @PostMapping("/v1/verify")
+    public ResponseEntity<CustomResponse> verify(@RequestBody JsonNode verifyRequest) {
+        CustomResponse response = userService.verifyUser(verifyRequest);
+        return new ResponseEntity<>(response, response.getResponseCode());
+    }
+
     @PostMapping("/v1/search")
     public ResponseEntity<?> search(@RequestBody SearchCriteria searchCriteria) {
         CustomResponse response = userService.searchUser(searchCriteria);
