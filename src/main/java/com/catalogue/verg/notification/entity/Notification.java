@@ -1,4 +1,4 @@
-package com.catalogue.verg.org.entity;
+package com.catalogue.verg.notification.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;

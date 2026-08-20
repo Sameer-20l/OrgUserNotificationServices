@@ -1,9 +1,9 @@
-package com.catalogue.verg.org.service;
+package com.catalogue.verg.notification.service;
 
 import com.catalogue.verg.core.dto.CustomResponse;
 import com.catalogue.verg.core.dto.NotificationTemplateRequest;
-import com.catalogue.verg.org.entity.NotificationTemplate;
-import com.catalogue.verg.org.repository.NotificationTemplateRepository;
+import com.catalogue.verg.notification.entity.NotificationTemplate;
+import com.catalogue.verg.notification.repository.NotificationTemplateRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

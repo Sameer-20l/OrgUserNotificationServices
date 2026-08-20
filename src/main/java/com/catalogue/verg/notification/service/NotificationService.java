@@ -1,11 +1,11 @@
-package com.catalogue.verg.org.service;
+package com.catalogue.verg.notification.service;
 
 import com.catalogue.verg.core.dto.CustomResponse;
 import com.catalogue.verg.core.dto.NotificationRequest;
-import com.catalogue.verg.org.entity.Notification;
-import com.catalogue.verg.org.entity.NotificationTemplate;
-import com.catalogue.verg.org.repository.NotificationRepository;
-import com.catalogue.verg.org.repository.NotificationTemplateRepository;
+import com.catalogue.verg.notification.entity.Notification;
+import com.catalogue.verg.notification.entity.NotificationTemplate;
+import com.catalogue.verg.notification.repository.NotificationRepository;
+import com.catalogue.verg.notification.repository.NotificationTemplateRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;

@@ -1,6 +1,6 @@
-package com.catalogue.verg.org.repository;
+package com.catalogue.verg.notification.repository;
 
-import com.catalogue.verg.org.entity.NotificationTemplate;
+import com.catalogue.verg.notification.entity.NotificationTemplate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

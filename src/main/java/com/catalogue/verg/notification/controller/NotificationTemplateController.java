@@ -1,8 +1,8 @@
-package com.catalogue.verg.controllers;
+package com.catalogue.verg.notification.controller;
 
 import com.catalogue.verg.core.dto.CustomResponse;
 import com.catalogue.verg.core.dto.NotificationTemplateRequest;
-import com.catalogue.verg.org.service.NotificationTemplateService;
+import com.catalogue.verg.notification.service.NotificationTemplateService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

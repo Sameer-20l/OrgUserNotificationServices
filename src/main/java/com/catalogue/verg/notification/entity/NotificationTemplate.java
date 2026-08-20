@@ -1,4 +1,4 @@
-package com.catalogue.verg.org.entity;
+package com.catalogue.verg.notification.entity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.Column;
